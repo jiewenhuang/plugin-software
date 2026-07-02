@@ -1,0 +1,68 @@
+apiVersion: v1alpha1
+kind: Role
+metadata:
+  name: role-template-software-view
+  labels:
+    halo.run/role-template: "true"
+  annotations:
+    rbac.authorization.halo.run/module: "软件"
+    rbac.authorization.halo.run/display-name: "软件查看"
+    rbac.authorization.halo.run/ui-permissions: '["plugin:software:view"]'
+rules:
+  - apiGroups: [ "software.jiewen.run", "console.api.software.jiewen.run" ]
+    resources:
+      - softwareapps
+      - softwareversions
+      - downloadassets
+      - softwarecategories
+      - softwaretags
+      - softwaretopics
+      - apps
+      - versions
+      - download-assets
+      - categories
+      - tags
+      - topics
+    verbs: [ "get", "list" ]
+---
+apiVersion: v1alpha1
+kind: Role
+metadata:
+  name: role-template-software-manage
+  labels:
+    halo.run/role-template: "true"
+  annotations:
+    rbac.authorization.halo.run/module: "软件"
+    rbac.authorization.halo.run/display-name: "软件管理"
+    rbac.authorization.halo.run/dependencies: '["role-template-software-view"]'
+    rbac.authorization.halo.run/ui-permissions: '["plugin:software:manage"]'
+rules:
+  - apiGroups: [ "software.jiewen.run", "console.api.software.jiewen.run" ]
+    resources:
+      - softwareapps
+      - softwareversions
+      - downloadassets
+      - softwarecategories
+      - softwaretags
+      - softwaretopics
+      - apps
+      - versions
+      - download-assets
+      - categories
+      - tags
+      - topics
+      - ai/apps/suggestions
+    verbs: [ "create", "patch", "update", "delete", "deletecollection" ]
+---
+apiVersion: v1alpha1
+kind: Role
+metadata:
+  name: role-template-software-anonymous
+  labels:
+    halo.run/role-template: "true"
+    halo.run/hidden: "true"
+    rbac.authorization.halo.run/aggregate-to-anonymous: "true"
+rules:
+  - apiGroups: [ "api.software.jiewen.run" ]
+    resources: [ "apps", "apps/download", "categories", "tags", "topics" ]
+    verbs: [ "get", "list" ]

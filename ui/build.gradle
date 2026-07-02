@@ -1,0 +1,49 @@
+plugins {
+    id 'base'
+    id "com.github.node-gradle.node" version "7.1.0"
+}
+
+group 'run.jiewen.software.ui'
+
+tasks.register('pnpmBuild', PnpmTask) {
+    group = 'build'
+    description = 'Build the UI project using pnpm'
+    args = ['build']
+    dependsOn tasks.named('pnpmInstall')
+    inputs.dir(layout.projectDirectory.dir('src'))
+    inputs.files(fileTree(
+        dir: layout.projectDirectory,
+        includes: ['*.cjs', '*.ts', '*.js', '*.json', '*.yaml']))
+    outputs.dir(layout.buildDirectory.dir('dist'))
+}
+
+tasks.register('pnpmCheck', PnpmTask) {
+    group = 'verification'
+    description = 'Run unit tests for the UI project using pnpm'
+    args = ['test:unit']
+    dependsOn tasks.named('pnpmInstall')
+}
+
+tasks.register('pnpmTypeCheck', PnpmTask) {
+    group = 'verification'
+    description = 'Run Vue TypeScript checks'
+    args = ['type-check']
+    dependsOn tasks.named('pnpmInstall')
+}
+
+tasks.register('pnpmLintCheck', PnpmTask) {
+    group = 'verification'
+    description = 'Run UI lint checks without modifying files'
+    args = ['lint:check']
+    dependsOn tasks.named('pnpmInstall')
+}
+
+tasks.named('check') {
+    dependsOn tasks.named('pnpmCheck')
+    dependsOn tasks.named('pnpmTypeCheck')
+    dependsOn tasks.named('pnpmLintCheck')
+}
+
+tasks.named('assemble') {
+    dependsOn tasks.named('pnpmBuild')
+}

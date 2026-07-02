@@ -1,0 +1,26 @@
+# Refer https://docs.halo.run/developer-guide/plugin/basics/manifest
+
+apiVersion: plugin.halo.run/v1alpha1
+kind: Plugin
+metadata:
+  # The name defines how the plugin is invoked, A unique name
+  name: software
+spec:
+  enabled: true
+  requires: ">=2.25.0"
+  pluginDependencies:
+    ai-foundation: "*"
+  author:
+    name: jiewenhuang
+    website: https://github.com/jiewenhuang
+  logo: logo.png
+  homepage: https://github.com/jiewenhuang/software#readme
+  repo: https://github.com/jiewenhuang/software
+  issues: https://github.com/jiewenhuang/software/issues
+  displayName: "software"
+  description: "software - Halo 插件"
+  settingName: software-settings
+  configMapName: software-config
+  license:
+    - name: "GPL-3.0"
+      url: "https://github.com/jiewenhuang/software/blob/main/LICENSE"

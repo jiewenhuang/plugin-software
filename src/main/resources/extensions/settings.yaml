@@ -1,0 +1,239 @@
+apiVersion: v1alpha1
+kind: Setting
+metadata:
+  name: software-settings
+spec:
+  forms:
+    - group: ai
+      label: AI 配置
+      formSchema:
+        - $formkit: switch
+          name: enabled
+          label: 启用 AI 辅助
+          value: true
+          help: 关闭后，控制台中的 AI 生成按钮会返回不可用提示。
+
+        - $formkit: aiModelSelector
+          name: languageModelName
+          label: 语言模型
+          modelType: language
+          clearable: true
+          placeholder: 使用 AI Foundation 默认语言模型
+          help: 留空时使用 AI Foundation 中配置的默认语言模型。
+
+        - $formkit: number
+          name: temperature
+          label: 创意程度
+          value: 0.4
+          min: 0
+          max: 1
+          step: 0.1
+
+        - $formkit: number
+          name: maxOutputTokens
+          label: 最大输出 Token
+          value: 1200
+          min: 256
+          max: 4096
+          step: 128
+
+    - group: options
+      label: 选项配置
+      formSchema:
+        - $formkit: repeater
+          name: platforms
+          label: 平台 / 系统
+          help: 用于软件编辑页的平台选择和软件列表筛选。
+          value:
+            - label: macOS
+              value: macOS
+              shortLabel: M
+              className: macos
+            - label: Windows
+              value: Windows
+              shortLabel: W
+              className: windows
+            - label: Linux
+              value: Linux
+              shortLabel: L
+              className: linux
+            - label: iOS
+              value: iOS
+              shortLabel: i
+              className: ios
+            - label: Android
+              value: Android
+              shortLabel: A
+              className: android
+            - label: Web
+              value: Web
+              shortLabel: Web
+              className: web
+          children:
+            - $formkit: text
+              name: label
+              label: 显示名称
+              validation: required
+            - $formkit: text
+              name: value
+              label: 存储值
+              validation: required
+            - $formkit: text
+              name: shortLabel
+              label: 短标签
+              help: 软件列表里展示的短文本。
+            - $formkit: text
+              name: className
+              label: 样式标识
+              help: 可填 macos、windows、linux、ios、android、web；其他值按通用样式展示。
+
+        - $formkit: repeater
+          name: architectures
+          label: 架构
+          help: 用于软件编辑页的架构选择。
+          value:
+            - label: Apple Silicon
+              value: arm64
+            - label: Intel x64
+              value: x64
+            - label: Universal
+              value: universal
+          children:
+            - $formkit: text
+              name: label
+              label: 显示名称
+              validation: required
+            - $formkit: text
+              name: value
+              label: 存储值
+              validation: required
+
+        - $formkit: repeater
+          name: versionStatuses
+          label: 版本状态
+          value:
+            - label: 已发布
+              value: released
+            - label: 草稿
+              value: draft
+            - label: Beta
+              value: beta
+            - label: 已废弃
+              value: deprecated
+          children:
+            - $formkit: text
+              name: label
+              label: 显示名称
+              validation: required
+            - $formkit: text
+              name: value
+              label: 存储值
+              validation: required
+
+        - $formkit: repeater
+          name: downloadTypes
+          label: 下载类型
+          value:
+            - label: DMG
+              value: dmg
+            - label: ZIP
+              value: zip
+            - label: PKG
+              value: pkg
+            - label: EXE
+              value: exe
+            - label: MSI
+              value: msi
+            - label: APK
+              value: apk
+            - label: IPA
+              value: ipa
+            - label: 其他
+              value: other
+          children:
+            - $formkit: text
+              name: label
+              label: 显示名称
+              validation: required
+            - $formkit: text
+              name: value
+              label: 存储值
+              validation: required
+
+        - $formkit: repeater
+          name: downloadProviders
+          label: 下载来源 / 网盘
+          value:
+            - label: 外部链接
+              value: external
+            - label: 官方源
+              value: official
+            - label: 附件存储
+              value: attachment
+            - label: GitHub
+              value: github
+            - label: 百度网盘
+              value: baidu
+            - label: 阿里云盘
+              value: aliyun
+            - label: 夸克网盘
+              value: quark
+            - label: 其他
+              value: other
+          children:
+            - $formkit: text
+              name: label
+              label: 显示名称
+              validation: required
+            - $formkit: text
+              name: value
+              label: 存储值
+              validation: required
+
+        - $formkit: repeater
+          name: releaseChannels
+          label: 发布通道
+          value:
+            - label: 未设置
+              value: ""
+            - label: Stable
+              value: stable
+            - label: Beta
+              value: beta
+            - label: Alpha
+              value: alpha
+            - label: Nightly
+              value: nightly
+          children:
+            - $formkit: text
+              name: label
+              label: 显示名称
+              validation: required
+            - $formkit: text
+              name: value
+              label: 存储值
+
+        - $formkit: repeater
+          name: locales
+          label: 语言区域
+          value:
+            - label: 未设置
+              value: ""
+            - label: 简体中文
+              value: zh-CN
+            - label: 繁体中文
+              value: zh-TW
+            - label: English
+              value: en-US
+            - label: 日本語
+              value: ja-JP
+            - label: 通用
+              value: global
+          children:
+            - $formkit: text
+              name: label
+              label: 显示名称
+              validation: required
+            - $formkit: text
+              name: value
+              label: 存储值
