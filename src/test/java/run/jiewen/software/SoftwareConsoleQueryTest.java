@@ -20,4 +20,17 @@ class SoftwareConsoleQueryTest {
             .contains("spec.categoryName", "category-1", "spec.platform", "macOS",
                 "spec.published", "true");
     }
+
+    @Test
+    void querySupportsDownloadAssetFilters() {
+        var exchange = MockServerWebExchange.from(MockServerHttpRequest
+            .get("/download-assets?type=local&enabled=false&protection=protected")
+            .build());
+
+        var query = new SoftwareConsoleQuery(exchange);
+
+        assertThat(query.toListOptions("spec.title").toString())
+            .contains("spec.type", "local", "spec.enabled", "false",
+                "spec.protected", "true");
+    }
 }

@@ -1,13 +1,19 @@
 package run.jiewen.software.finders.impl;
 
+import static run.halo.app.extension.index.query.Queries.and;
 import static run.halo.app.extension.index.query.Queries.equal;
 
+import java.nio.charset.StandardCharsets;
+import java.time.Instant;
+import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
 import java.util.function.Function;
 import java.util.regex.Pattern;
+import org.springframework.beans.BeanUtils;
+import org.springframework.beans.BeanWrapperImpl;
 import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
@@ -22,23 +28,30 @@ import run.halo.app.extension.PageRequest;
 import run.halo.app.extension.PageRequestImpl;
 import run.halo.app.extension.ReactiveExtensionClient;
 import run.jiewen.software.SoftwareConsoleQuery;
+import run.jiewen.software.api.DownloadAssetSecretCommand;
+import run.jiewen.software.download.DownloadTargetPolicy;
 import run.jiewen.software.extension.DownloadAsset;
 import run.jiewen.software.extension.SoftwareApp;
 import run.jiewen.software.extension.SoftwareCategory;
 import run.jiewen.software.extension.SoftwareTag;
 import run.jiewen.software.extension.SoftwareTopic;
 import run.jiewen.software.extension.SoftwareVersion;
+import run.halo.app.extension.Secret;
 import run.jiewen.software.finders.SoftwareConsoleService;
 import run.jiewen.software.vo.SoftwareConsoleStatsVo;
+import run.jiewen.software.vo.DownloadAssetSecretVo;
+import run.jiewen.software.vo.DownloadAssetStatsVo;
 
 @Component
 public class SoftwareConsoleServiceImpl implements SoftwareConsoleService {
 
-    private static final PageRequest FIRST_PAGE =
-        PageRequestImpl.of(1, 1000, Sort.by("metadata.name").ascending());
+    private static final PageRequest FIRST_MATCH =
+        PageRequestImpl.of(1, 2, Sort.by("metadata.name").ascending());
     private static final Pattern SLUG_PATTERN = Pattern.compile("[a-z0-9]+(?:-[a-z0-9]+)*");
     private static final Pattern HEX_COLOR_PATTERN =
         Pattern.compile("#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})");
+    private static final Pattern SHA256_PATTERN = Pattern.compile("[0-9a-fA-F]{64}");
+    private static final Pattern MD5_PATTERN = Pattern.compile("[0-9a-fA-F]{32}");
 
     private final ReactiveExtensionClient client;
 
@@ -54,29 +67,14 @@ public class SoftwareConsoleServiceImpl implements SoftwareConsoleService {
     @Override
     public Mono<SoftwareConsoleStatsVo> getAppStats() {
         return client.listAll(SoftwareApp.class, ListOptions.builder().build(), Sort.unsorted())
-            .collectList()
-            .map(apps -> {
-                var platforms = new LinkedHashSet<String>();
-                long published = 0;
-                long downloads = 0;
-                for (var app : apps) {
-                    var spec = app.getSpec();
-                    if (spec != null && Boolean.TRUE.equals(spec.getPublished())) {
-                        published++;
-                    }
-                    if (app.getStatus() != null && app.getStatus().getDownloadCount() != null) {
-                        downloads += app.getStatus().getDownloadCount();
-                    }
-                    if (spec != null) {
-                        platformValues(spec.getPlatform()).forEach(platforms::add);
-                    }
-                }
+            .collect(AppStatsAccumulator::new, AppStatsAccumulator::accept)
+            .map(stats -> {
                 return SoftwareConsoleStatsVo.builder()
-                    .total(apps.size())
-                    .published(published)
-                    .drafts(apps.size() - published)
-                    .downloads(downloads)
-                    .platforms(List.copyOf(platforms))
+                    .total(stats.total)
+                    .published(stats.published)
+                    .drafts(stats.total - stats.published)
+                    .downloads(stats.downloads)
+                    .platforms(List.copyOf(stats.platforms))
                     .build();
             });
     }
@@ -90,25 +88,37 @@ public class SoftwareConsoleServiceImpl implements SoftwareConsoleService {
     public Mono<SoftwareApp> createApp(SoftwareApp app) {
         return Mono.defer(() -> {
             normalizeApp(app);
+            app.setStatus(null);
             prepareMetadata(app, "software-app-", "software-app-" + app.getSpec().getSlug());
-            return ensureAppRefs(app)
+            return ensureAppRefs(app, app.getMetadata().getName())
                 .then(ensureSlugUnique(app.getSpec().getSlug(), null))
                 .then(Mono.defer(() -> client.create(app)));
         });
     }
 
     @Override
+    public Mono<SoftwareApp> replaceApp(String name, SoftwareApp app) {
+        return Mono.defer(() -> getApp(name)
+            .flatMap(existing -> {
+                existing.setSpec(requiredSpec(app == null ? null : app.getSpec(),
+                    "Software app spec is required"));
+                normalizeApp(existing);
+                return ensureAppRefs(existing, name)
+                    .then(ensureSlugUnique(existing.getSpec().getSlug(), name))
+                    .then(Mono.defer(() -> client.update(existing)));
+            }));
+    }
+
+    @Override
     public Mono<SoftwareApp> updateApp(String name, SoftwareApp app) {
-        return Mono.defer(() -> {
-            normalizeApp(app);
-            return getApp(name)
-                .flatMap(existing -> ensureAppRefs(app)
-                    .then(ensureSlugUnique(app.getSpec().getSlug(), name))
-                    .then(Mono.defer(() -> {
-                        app.setMetadata(existing.getMetadata());
-                        return client.update(app);
-                    })));
-        });
+        return Mono.defer(() -> getApp(name)
+            .flatMap(existing -> {
+                mergeApp(app, existing);
+                normalizeApp(existing);
+                return ensureAppRefs(existing, name)
+                    .then(ensureSlugUnique(existing.getSpec().getSlug(), name))
+                    .then(Mono.defer(() -> client.update(existing)));
+            }));
     }
 
     @Override
@@ -129,23 +139,44 @@ public class SoftwareConsoleServiceImpl implements SoftwareConsoleService {
     public Mono<SoftwareVersion> createVersion(SoftwareVersion version) {
         return Mono.defer(() -> {
             normalizeVersion(version);
+            version.setStatus(null);
             prepareMetadata(version, "software-version-");
             return ensureAppExists(version.getSpec().getAppName())
+                .then(Mono.defer(() -> ensureVersionUnique(version.getSpec().getAppName(),
+                    version.getSpec().getVersion(), null)))
                 .then(Mono.defer(() -> client.create(version)));
         });
     }
 
     @Override
+    public Mono<SoftwareVersion> replaceVersion(String name, SoftwareVersion version) {
+        return Mono.defer(() ->
+            fetchOrNotFound(SoftwareVersion.class, name, "Software version not found")
+                .flatMap(existing -> {
+                    existing.setSpec(requiredSpec(version == null ? null : version.getSpec(),
+                        "Software version spec is required"));
+                    normalizeVersion(existing);
+                    return ensureAppExists(existing.getSpec().getAppName())
+                        .then(Mono.defer(() -> ensureVersionUnique(
+                            existing.getSpec().getAppName(),
+                            existing.getSpec().getVersion(), name)))
+                        .then(Mono.defer(() -> client.update(existing)));
+                }));
+    }
+
+    @Override
     public Mono<SoftwareVersion> updateVersion(String name, SoftwareVersion version) {
-        return Mono.defer(() -> {
-            normalizeVersion(version);
-            return fetchOrNotFound(SoftwareVersion.class, name, "Software version not found")
-                .flatMap(existing -> ensureAppExists(version.getSpec().getAppName())
-                    .then(Mono.defer(() -> {
-                        version.setMetadata(existing.getMetadata());
-                        return client.update(version);
-                    })));
-        });
+        return Mono.defer(() ->
+            fetchOrNotFound(SoftwareVersion.class, name, "Software version not found")
+                .flatMap(existing -> {
+                    mergeVersion(version, existing);
+                    normalizeVersion(existing);
+                    return ensureAppExists(existing.getSpec().getAppName())
+                        .then(Mono.defer(() -> ensureVersionUnique(
+                            existing.getSpec().getAppName(),
+                            existing.getSpec().getVersion(), name)))
+                        .then(Mono.defer(() -> client.update(existing)));
+                }));
     }
 
     @Override
@@ -162,9 +193,17 @@ public class SoftwareConsoleServiceImpl implements SoftwareConsoleService {
     }
 
     @Override
+    public Mono<DownloadAssetStatsVo> getDownloadAssetStats() {
+        return client.listAll(DownloadAsset.class, ListOptions.builder().build(), Sort.unsorted())
+            .collect(DownloadAssetStatsAccumulator::new, DownloadAssetStatsAccumulator::accept)
+            .map(DownloadAssetStatsAccumulator::toVo);
+    }
+
+    @Override
     public Mono<DownloadAsset> createDownloadAsset(DownloadAsset asset) {
         return Mono.defer(() -> {
             normalizeDownloadAsset(asset);
+            asset.setStatus(null);
             prepareMetadata(asset, "download-asset-");
             return ensureDownloadAssetRefs(asset)
                 .then(Mono.defer(() -> client.create(asset)));
@@ -172,16 +211,64 @@ public class SoftwareConsoleServiceImpl implements SoftwareConsoleService {
     }
 
     @Override
+    public Mono<DownloadAsset> replaceDownloadAsset(String name, DownloadAsset asset) {
+        return Mono.defer(() ->
+            fetchOrNotFound(DownloadAsset.class, name, "Download asset not found")
+                .flatMap(existing -> {
+                    var stored = requiredSpec(existing.getSpec(),
+                        "Stored download asset spec is missing");
+                    var replacement = requiredSpec(asset == null ? null : asset.getSpec(),
+                        "Download asset spec is required");
+                    replacement.setUrl(stored.getUrl());
+                    replacement.setStorageKey(stored.getStorageKey());
+                    replacement.setExtractionCode(stored.getExtractionCode());
+                    replacement.setPasswordSecretName(stored.getPasswordSecretName());
+                    existing.setSpec(replacement);
+                    normalizeDownloadAsset(existing);
+                    return ensureDownloadAssetRefs(existing)
+                        .then(Mono.defer(() -> client.update(existing)));
+                }));
+    }
+
+    @Override
     public Mono<DownloadAsset> updateDownloadAsset(String name, DownloadAsset asset) {
-        return Mono.defer(() -> {
-            normalizeDownloadAsset(asset);
-            return fetchOrNotFound(DownloadAsset.class, name, "Download asset not found")
-                .flatMap(existing -> ensureDownloadAssetRefs(asset)
-                    .then(Mono.defer(() -> {
-                        asset.setMetadata(existing.getMetadata());
-                        return client.update(asset);
-                    })));
-        });
+        return Mono.defer(() ->
+            fetchOrNotFound(DownloadAsset.class, name, "Download asset not found")
+                .flatMap(existing -> {
+                    mergeSpec(asset == null ? null : asset.getSpec(), existing.getSpec());
+                    normalizeDownloadAsset(existing);
+                    return ensureDownloadAssetRefs(existing)
+                        .then(Mono.defer(() -> client.update(existing)));
+                }));
+    }
+
+    @Override
+    public Mono<DownloadAssetSecretVo> getDownloadAssetSecret(String name) {
+        return fetchOrNotFound(DownloadAsset.class, name, "Download asset not found")
+            .map(DownloadAssetSecretVo::from);
+    }
+
+    @Override
+    public Mono<DownloadAssetSecretVo> updateDownloadAssetSecret(String name,
+        DownloadAssetSecretCommand command) {
+        if (command == null) {
+            return Mono.error(new ServerWebInputException("Download asset secret body is required"));
+        }
+        return fetchOrNotFound(DownloadAsset.class, name, "Download asset not found")
+            .flatMap(asset -> {
+                var spec = asset.getSpec();
+                if (spec == null) {
+                    return Mono.error(new ServerWebInputException("Download asset spec is required"));
+                }
+                spec.setUrl(normalizeOptional(command.url()));
+                spec.setStorageKey(normalizeOptional(command.storageKey()));
+                spec.setExtractionCode(normalizeOptional(command.extractionCode()));
+                spec.setPasswordSecretName(normalizeOptional(command.passwordSecretName()));
+                validateDownloadTarget(spec);
+                return ensureDownloadSecretRef(spec)
+                    .then(Mono.defer(() -> client.update(asset)))
+                    .map(DownloadAssetSecretVo::from);
+            });
     }
 
     @Override
@@ -200,27 +287,47 @@ public class SoftwareConsoleServiceImpl implements SoftwareConsoleService {
     public Mono<SoftwareCategory> createCategory(SoftwareCategory category) {
         return Mono.defer(() -> {
             normalizeCategory(category);
+            category.setStatus(null);
             prepareMetadata(category, "software-category-");
-            return ensureSlugUnique(SoftwareCategory.class, category.getSpec().getSlug(), null,
-                SoftwareCategory::getSpec, SoftwareCategory.Spec::getSlug,
-                "Software category slug already exists")
+            return ensureCategoryParent(category.getSpec().getParentName(), null)
+                .then(ensureSlugUnique(SoftwareCategory.class, category.getSpec().getSlug(), null,
+                    SoftwareCategory::getSpec, SoftwareCategory.Spec::getSlug,
+                    "Software category slug already exists"))
                 .then(Mono.defer(() -> client.create(category)));
         });
     }
 
     @Override
+    public Mono<SoftwareCategory> replaceCategory(String name, SoftwareCategory category) {
+        return Mono.defer(() ->
+            fetchOrNotFound(SoftwareCategory.class, name, "Software category not found")
+                .flatMap(existing -> {
+                    existing.setSpec(requiredSpec(category == null ? null : category.getSpec(),
+                        "Software category spec is required"));
+                    normalizeCategory(existing);
+                    return ensureCategoryParent(existing.getSpec().getParentName(), name)
+                        .then(ensureSlugUnique(SoftwareCategory.class,
+                            existing.getSpec().getSlug(), name, SoftwareCategory::getSpec,
+                            SoftwareCategory.Spec::getSlug,
+                            "Software category slug already exists"))
+                        .then(Mono.defer(() -> client.update(existing)));
+                }));
+    }
+
+    @Override
     public Mono<SoftwareCategory> updateCategory(String name, SoftwareCategory category) {
-        return Mono.defer(() -> {
-            normalizeCategory(category);
-            return fetchOrNotFound(SoftwareCategory.class, name, "Software category not found")
-                .flatMap(existing -> ensureSlugUnique(SoftwareCategory.class,
-                    category.getSpec().getSlug(), name, SoftwareCategory::getSpec,
-                    SoftwareCategory.Spec::getSlug, "Software category slug already exists")
-                    .then(Mono.defer(() -> {
-                        category.setMetadata(existing.getMetadata());
-                        return client.update(category);
-                    })));
-        });
+        return Mono.defer(() ->
+            fetchOrNotFound(SoftwareCategory.class, name, "Software category not found")
+                .flatMap(existing -> {
+                    mergeSpec(category == null ? null : category.getSpec(), existing.getSpec());
+                    normalizeCategory(existing);
+                    return ensureCategoryParent(existing.getSpec().getParentName(), name)
+                        .then(ensureSlugUnique(SoftwareCategory.class,
+                            existing.getSpec().getSlug(), name, SoftwareCategory::getSpec,
+                            SoftwareCategory.Spec::getSlug,
+                            "Software category slug already exists"))
+                        .then(Mono.defer(() -> client.update(existing)));
+                }));
     }
 
     @Override
@@ -228,6 +335,9 @@ public class SoftwareConsoleServiceImpl implements SoftwareConsoleService {
         return fetchOrNotFound(SoftwareCategory.class, name, "Software category not found")
             .flatMap(category -> ensureNoChildren(SoftwareApp.class, "spec.categoryName", name,
                 "Please remove software category references before deleting")
+                .then(Mono.defer(() -> ensureNoChildren(SoftwareCategory.class,
+                    "spec.parentName", name,
+                    "Please delete or move child categories before deleting")))
                 .then(Mono.defer(() -> client.delete(category))));
     }
 
@@ -246,6 +356,7 @@ public class SoftwareConsoleServiceImpl implements SoftwareConsoleService {
     public Mono<SoftwareTag> createTag(SoftwareTag tag) {
         return Mono.defer(() -> {
             normalizeTag(tag);
+            tag.setStatus(null);
             prepareMetadata(tag, "software-tag-");
             return ensureSlugUnique(SoftwareTag.class, tag.getSpec().getSlug(), null,
                 SoftwareTag::getSpec, SoftwareTag.Spec::getSlug,
@@ -255,18 +366,30 @@ public class SoftwareConsoleServiceImpl implements SoftwareConsoleService {
     }
 
     @Override
-    public Mono<SoftwareTag> updateTag(String name, SoftwareTag tag) {
-        return Mono.defer(() -> {
-            normalizeTag(tag);
-            return fetchOrNotFound(SoftwareTag.class, name, "Software tag not found")
-                .flatMap(existing -> ensureSlugUnique(SoftwareTag.class, tag.getSpec().getSlug(),
-                    name, SoftwareTag::getSpec, SoftwareTag.Spec::getSlug,
+    public Mono<SoftwareTag> replaceTag(String name, SoftwareTag tag) {
+        return Mono.defer(() -> fetchOrNotFound(SoftwareTag.class, name, "Software tag not found")
+            .flatMap(existing -> {
+                existing.setSpec(requiredSpec(tag == null ? null : tag.getSpec(),
+                    "Software tag spec is required"));
+                normalizeTag(existing);
+                return ensureSlugUnique(SoftwareTag.class, existing.getSpec().getSlug(), name,
+                    SoftwareTag::getSpec, SoftwareTag.Spec::getSlug,
                     "Software tag slug already exists")
-                    .then(Mono.defer(() -> {
-                        tag.setMetadata(existing.getMetadata());
-                        return client.update(tag);
-                    })));
-        });
+                    .then(Mono.defer(() -> client.update(existing)));
+            }));
+    }
+
+    @Override
+    public Mono<SoftwareTag> updateTag(String name, SoftwareTag tag) {
+        return Mono.defer(() -> fetchOrNotFound(SoftwareTag.class, name, "Software tag not found")
+            .flatMap(existing -> {
+                mergeSpec(tag == null ? null : tag.getSpec(), existing.getSpec());
+                normalizeTag(existing);
+                return ensureSlugUnique(SoftwareTag.class, existing.getSpec().getSlug(), name,
+                    SoftwareTag::getSpec, SoftwareTag.Spec::getSlug,
+                    "Software tag slug already exists")
+                    .then(Mono.defer(() -> client.update(existing)));
+            }));
     }
 
     @Override
@@ -287,27 +410,45 @@ public class SoftwareConsoleServiceImpl implements SoftwareConsoleService {
     public Mono<SoftwareTopic> createTopic(SoftwareTopic topic) {
         return Mono.defer(() -> {
             normalizeTopic(topic);
+            topic.setStatus(null);
             prepareMetadata(topic, "software-topic-");
             return ensureSlugUnique(SoftwareTopic.class, topic.getSpec().getSlug(), null,
                 SoftwareTopic::getSpec, SoftwareTopic.Spec::getSlug,
                 "Software topic slug already exists")
+                .then(ensureTopicRefs(topic))
                 .then(Mono.defer(() -> client.create(topic)));
         });
     }
 
     @Override
+    public Mono<SoftwareTopic> replaceTopic(String name, SoftwareTopic topic) {
+        return Mono.defer(() ->
+            fetchOrNotFound(SoftwareTopic.class, name, "Software topic not found")
+                .flatMap(existing -> {
+                    existing.setSpec(requiredSpec(topic == null ? null : topic.getSpec(),
+                        "Software topic spec is required"));
+                    normalizeTopic(existing);
+                    return ensureSlugUnique(SoftwareTopic.class, existing.getSpec().getSlug(),
+                        name, SoftwareTopic::getSpec, SoftwareTopic.Spec::getSlug,
+                        "Software topic slug already exists")
+                        .then(ensureTopicRefs(existing))
+                        .then(Mono.defer(() -> client.update(existing)));
+                }));
+    }
+
+    @Override
     public Mono<SoftwareTopic> updateTopic(String name, SoftwareTopic topic) {
-        return Mono.defer(() -> {
-            normalizeTopic(topic);
-            return fetchOrNotFound(SoftwareTopic.class, name, "Software topic not found")
-                .flatMap(existing -> ensureSlugUnique(SoftwareTopic.class, topic.getSpec().getSlug(),
-                    name, SoftwareTopic::getSpec, SoftwareTopic.Spec::getSlug,
-                    "Software topic slug already exists")
-                    .then(Mono.defer(() -> {
-                        topic.setMetadata(existing.getMetadata());
-                        return client.update(topic);
-                    })));
-        });
+        return Mono.defer(() ->
+            fetchOrNotFound(SoftwareTopic.class, name, "Software topic not found")
+                .flatMap(existing -> {
+                    mergeSpec(topic == null ? null : topic.getSpec(), existing.getSpec());
+                    normalizeTopic(existing);
+                    return ensureSlugUnique(SoftwareTopic.class, existing.getSpec().getSlug(),
+                        name, SoftwareTopic::getSpec, SoftwareTopic.Spec::getSlug,
+                        "Software topic slug already exists")
+                        .then(ensureTopicRefs(existing))
+                        .then(Mono.defer(() -> client.update(existing)));
+                }));
     }
 
     @Override
@@ -327,7 +468,7 @@ public class SoftwareConsoleServiceImpl implements SoftwareConsoleService {
         var options = ListOptions.builder()
             .andQuery(equal("spec.slug", slug))
             .build();
-        return client.listBy(type, options, FIRST_PAGE)
+        return client.listBy(type, options, FIRST_MATCH)
             .flatMap(result -> {
                 var duplicate = result.getItems()
                     .stream()
@@ -361,6 +502,15 @@ public class SoftwareConsoleServiceImpl implements SoftwareConsoleService {
         if (app.getSpec().getRecommended() == null) {
             app.getSpec().setRecommended(false);
         }
+        normalizePlatforms(app.getSpec());
+        app.getSpec().setTagNames(normalizeValues(app.getSpec().getTagNames()));
+        app.getSpec().setArchitectures(normalizeValues(app.getSpec().getArchitectures()));
+        app.getSpec().setRelatedAppNames(normalizeValues(app.getSpec().getRelatedAppNames()));
+        app.getSpec().setRelatedPostNames(normalizeValues(app.getSpec().getRelatedPostNames()));
+        if (Boolean.TRUE.equals(app.getSpec().getPublished())
+            && app.getSpec().getPublishedAt() == null) {
+            app.getSpec().setPublishedAt(Instant.now());
+        }
     }
 
     private static void normalizeVersion(SoftwareVersion version) {
@@ -374,8 +524,45 @@ public class SoftwareConsoleServiceImpl implements SoftwareConsoleService {
             throw new ServerWebInputException("Software version is required");
         }
         if (!hasText(version.getSpec().getStatus())) {
-            version.getSpec().setStatus("released");
+            version.getSpec().setStatus("draft");
         }
+        var normalizedStatus = version.getSpec().getStatus().trim().toLowerCase(Locale.ROOT);
+        if (!List.of("draft", "released", "beta", "deprecated").contains(normalizedStatus)) {
+            throw new ServerWebInputException("Unsupported software version status");
+        }
+        version.getSpec().setStatus(normalizedStatus);
+        version.getSpec().setBuild(normalizeOptional(version.getSpec().getBuild()));
+        version.getSpec().setMinOsVersion(normalizeOptional(version.getSpec().getMinOsVersion()));
+        version.getSpec().setMaxOsVersion(normalizeOptional(version.getSpec().getMaxOsVersion()));
+        version.getSpec().setLocale(normalizeOptional(version.getSpec().getLocale()));
+        version.getSpec().setChangelog(normalizeOptional(version.getSpec().getChangelog()));
+        version.getSpec().setInstallGuide(normalizeOptional(
+            version.getSpec().getInstallGuide()));
+        if (version.getSpec().getSizeBytes() != null && version.getSpec().getSizeBytes() < 0) {
+            throw new ServerWebInputException("Software version sizeBytes must not be negative");
+        }
+        version.getSpec().setArchitectures(normalizeValues(version.getSpec().getArchitectures()));
+        version.getSpec().setInstallWarnings(normalizeValues(version.getSpec().getInstallWarnings()));
+        normalizeChecksum(version.getSpec().getChecksum());
+    }
+
+    private static void normalizeChecksum(SoftwareVersion.Checksum checksum) {
+        if (checksum == null) {
+            return;
+        }
+        checksum.setSha256(normalizeDigest(checksum.getSha256(), SHA256_PATTERN, "SHA-256"));
+        checksum.setMd5(normalizeDigest(checksum.getMd5(), MD5_PATTERN, "MD5"));
+    }
+
+    private static String normalizeDigest(String value, Pattern pattern, String label) {
+        var normalized = normalizeOptional(value);
+        if (normalized == null) {
+            return null;
+        }
+        if (!pattern.matcher(normalized).matches()) {
+            throw new ServerWebInputException(label + " checksum must be a hexadecimal digest");
+        }
+        return normalized.toLowerCase(Locale.ROOT);
     }
 
     private static void normalizeDownloadAsset(DownloadAsset asset) {
@@ -392,7 +579,7 @@ public class SoftwareConsoleServiceImpl implements SoftwareConsoleService {
             throw new ServerWebInputException("Download asset title is required");
         }
         if (asset.getSpec().getEnabled() == null) {
-            asset.getSpec().setEnabled(true);
+            asset.getSpec().setEnabled(false);
         }
         if (asset.getSpec().getPriority() == null) {
             asset.getSpec().setPriority(0);
@@ -403,6 +590,10 @@ public class SoftwareConsoleServiceImpl implements SoftwareConsoleService {
         if (asset.getSpec().getRequiresCaptcha() == null) {
             asset.getSpec().setRequiresCaptcha(false);
         }
+        if (asset.getSpec().getPriority() < 0) {
+            throw new ServerWebInputException("Download asset priority must not be negative");
+        }
+        validateDownloadTarget(asset.getSpec());
     }
 
     private static void normalizeCategory(SoftwareCategory category) {
@@ -422,6 +613,9 @@ public class SoftwareConsoleServiceImpl implements SoftwareConsoleService {
         if (category.getSpec().getPriority() == null) {
             category.getSpec().setPriority(0);
         }
+        if (category.getSpec().getPriority() < 0) {
+            throw new ServerWebInputException("Software category priority must not be negative");
+        }
     }
 
     private static void normalizeTag(SoftwareTag tag) {
@@ -440,6 +634,9 @@ public class SoftwareConsoleServiceImpl implements SoftwareConsoleService {
         }
         if (tag.getSpec().getPriority() == null) {
             tag.getSpec().setPriority(0);
+        }
+        if (tag.getSpec().getPriority() < 0) {
+            throw new ServerWebInputException("Software tag priority must not be negative");
         }
         tag.getSpec().setColor(normalizeHexColor(tag.getSpec().getColor(), "Software tag color"));
     }
@@ -464,6 +661,22 @@ public class SoftwareConsoleServiceImpl implements SoftwareConsoleService {
         if (topic.getSpec().getPriority() == null) {
             topic.getSpec().setPriority(0);
         }
+        if (topic.getSpec().getPriority() < 0) {
+            throw new ServerWebInputException("Software topic priority must not be negative");
+        }
+        if (topic.getSpec().getItems() != null) {
+            var seen = new LinkedHashSet<String>();
+            topic.getSpec().setItems(topic.getSpec().getItems().stream()
+                .filter(Objects::nonNull)
+                .filter(item -> hasText(item.getAppName()))
+                .filter(item -> seen.add(item.getAppName()))
+                .peek(item -> {
+                    if (item.getPriority() == null || item.getPriority() < 0) {
+                        item.setPriority(0);
+                    }
+                })
+                .toList());
+        }
     }
 
     private Mono<Void> ensureAppExists(String appName) {
@@ -471,7 +684,7 @@ public class SoftwareConsoleServiceImpl implements SoftwareConsoleService {
             .then();
     }
 
-    private Mono<Void> ensureAppRefs(SoftwareApp app) {
+    private Mono<Void> ensureAppRefs(SoftwareApp app, String currentName) {
         var spec = app.getSpec();
         var categoryCheck = hasText(spec.getCategoryName())
             ? fetchOrInputError(SoftwareCategory.class, spec.getCategoryName(),
@@ -483,7 +696,80 @@ public class SoftwareConsoleServiceImpl implements SoftwareConsoleService {
             .flatMap(tagName -> fetchOrInputError(SoftwareTag.class, tagName,
                 "Software tag does not exist"))
             .then();
-        return categoryCheck.then(tagCheck);
+        var relatedApps = spec.getRelatedAppNames() == null
+            ? List.<String>of() : spec.getRelatedAppNames();
+        var relatedAppCheck = reactor.core.publisher.Flux.fromIterable(relatedApps)
+            .flatMap(relatedName -> {
+                if (Objects.equals(currentName, relatedName)) {
+                    return Mono.error(new ServerWebInputException(
+                        "Software app cannot relate to itself"));
+                }
+                return fetchOrInputError(SoftwareApp.class, relatedName,
+                    "Related software app does not exist");
+            })
+            .then();
+        var relatedPostNames = spec.getRelatedPostNames() == null
+            ? List.<String>of() : spec.getRelatedPostNames();
+        var relatedPostCheck = reactor.core.publisher.Flux.fromIterable(relatedPostNames)
+            .flatMap(postName -> fetchOrInputError(
+                run.halo.app.core.extension.content.Post.class, postName,
+                "Related post does not exist"))
+            .then();
+        return categoryCheck.then(tagCheck).then(relatedAppCheck).then(relatedPostCheck);
+    }
+
+    private Mono<Void> ensureTopicRefs(SoftwareTopic topic) {
+        var items = topic.getSpec().getItems() == null
+            ? List.<SoftwareTopic.Item>of() : topic.getSpec().getItems();
+        return reactor.core.publisher.Flux.fromIterable(items)
+            .flatMap(item -> fetchOrInputError(SoftwareApp.class, item.getAppName(),
+                "Software topic app does not exist"))
+            .then();
+    }
+
+    private Mono<Void> ensureCategoryParent(String parentName, String currentName) {
+        if (!hasText(parentName)) {
+            return Mono.empty();
+        }
+        if (Objects.equals(parentName, currentName)) {
+            return Mono.error(new ServerWebInputException(
+                "Software category cannot be its own parent"));
+        }
+        return fetchOrInputError(SoftwareCategory.class, parentName,
+            "Software parent category does not exist")
+            .flatMap(parent -> ensureCategoryAncestor(parent, currentName, new HashSet<>()));
+    }
+
+    private Mono<Void> ensureCategoryAncestor(SoftwareCategory category, String currentName,
+        HashSet<String> visited) {
+        var name = nameOf(category);
+        if (!visited.add(name)) {
+            return Mono.error(new ServerWebInputException("Software category hierarchy has a cycle"));
+        }
+        if (Objects.equals(name, currentName)) {
+            return Mono.error(new ServerWebInputException(
+                "Software category parent cannot be one of its descendants"));
+        }
+        var parentName = category.getSpec() == null ? null : category.getSpec().getParentName();
+        if (!hasText(parentName)) {
+            return Mono.empty();
+        }
+        return fetchOrInputError(SoftwareCategory.class, parentName,
+            "Software parent category does not exist")
+            .flatMap(parent -> ensureCategoryAncestor(parent, currentName, visited));
+    }
+
+    private Mono<Void> ensureVersionUnique(String appName, String version, String allowedName) {
+        var options = ListOptions.builder()
+            .andQuery(and(equal("spec.appName", appName), equal("spec.version", version)))
+            .build();
+        return client.listBy(SoftwareVersion.class, options, FIRST_MATCH)
+            .flatMap(result -> result.getItems().stream()
+                .filter(item -> !Objects.equals(nameOf(item), allowedName))
+                .findFirst()
+                .<Mono<Void>>map(ignored -> Mono.error(
+                    new ServerWebInputException("Software version already exists for app")))
+                .orElseGet(Mono::empty));
     }
 
     private Mono<Void> ensureDownloadAssetRefs(DownloadAsset asset) {
@@ -498,6 +784,24 @@ public class SoftwareConsoleServiceImpl implements SoftwareConsoleService {
                         "Software version does not belong to app"));
                 }
                 return Mono.empty();
+            })
+            .then(ensureDownloadSecretRef(spec));
+    }
+
+    private Mono<Void> ensureDownloadSecretRef(DownloadAsset.Spec spec) {
+        var secretName = spec.getPasswordSecretName();
+        if (!hasText(secretName)) {
+            return Mono.empty();
+        }
+        return fetchOrInputError(Secret.class, secretName, "Download password Secret does not exist")
+            .flatMap(secret -> {
+                if (!Boolean.TRUE.equals(spec.getEnabled())
+                    || DownloadTargetPolicy.firstUsable(spec.getUrl(), spec.getStorageKey()) != null
+                    || DownloadTargetPolicy.isUsable(secretValue(secret, "url"))) {
+                    return Mono.empty();
+                }
+                return Mono.error(new ServerWebInputException(
+                    "Enabled download asset requires a usable URL"));
             });
     }
 
@@ -521,7 +825,8 @@ public class SoftwareConsoleServiceImpl implements SoftwareConsoleService {
         var options = ListOptions.builder()
             .andQuery(equal(fieldName, value))
             .build();
-        return client.listBy(type, options, FIRST_PAGE)
+        return client.listBy(type, options,
+                PageRequestImpl.of(1, 1, Sort.by("metadata.name").ascending()))
             .flatMap(result -> {
                 if (result.getItems() != null && !result.getItems().isEmpty()) {
                     return Mono.error(new ServerWebInputException(message));
@@ -596,7 +901,22 @@ public class SoftwareConsoleServiceImpl implements SoftwareConsoleService {
         return value != null && !value.isBlank();
     }
 
-    private static List<String> platformValues(String value) {
+    private static List<String> platformValues(SoftwareApp.Spec spec) {
+        if (spec.getPlatforms() != null) {
+            return normalizeValues(spec.getPlatforms());
+        }
+        return splitPlatformValues(spec.getPlatform());
+    }
+
+    private static void normalizePlatforms(SoftwareApp.Spec spec) {
+        var values = spec.getPlatforms() == null
+            ? splitPlatformValues(spec.getPlatform())
+            : normalizeValues(spec.getPlatforms());
+        spec.setPlatforms(values);
+        spec.setPlatform(values.isEmpty() ? null : String.join(", ", values));
+    }
+
+    private static List<String> splitPlatformValues(String value) {
         if (!hasText(value)) {
             return List.of();
         }
@@ -604,5 +924,154 @@ public class SoftwareConsoleServiceImpl implements SoftwareConsoleService {
             .filter(SoftwareConsoleServiceImpl::hasText)
             .distinct()
             .toList();
+    }
+
+    private static List<String> normalizeValues(List<String> values) {
+        if (values == null) {
+            return List.of();
+        }
+        return values.stream()
+            .filter(Objects::nonNull)
+            .map(String::trim)
+            .filter(SoftwareConsoleServiceImpl::hasText)
+            .distinct()
+            .toList();
+    }
+
+    private static String normalizeOptional(String value) {
+        return hasText(value) ? value.trim() : null;
+    }
+
+    private static <T> T requiredSpec(T spec, String message) {
+        if (spec == null) {
+            throw new ServerWebInputException(message);
+        }
+        return spec;
+    }
+
+    private static void validateDownloadTarget(DownloadAsset.Spec spec) {
+        if (!Boolean.TRUE.equals(spec.getEnabled())) {
+            return;
+        }
+        if (DownloadTargetPolicy.firstUsable(spec.getUrl(), spec.getStorageKey()) != null
+            || hasText(spec.getPasswordSecretName())) {
+            return;
+        }
+        if (!hasText(spec.getUrl()) && !hasText(spec.getStorageKey())) {
+            throw new ServerWebInputException(
+                "Enabled download asset requires a URL, storage key, or password Secret");
+        }
+        throw new ServerWebInputException(
+            "Download URL must use http, https, or a safe absolute site path");
+    }
+
+    private static String secretValue(Secret secret, String key) {
+        var data = secret.getData();
+        var value = data == null ? null : data.get(key);
+        return value == null ? null : new String(value, StandardCharsets.UTF_8);
+    }
+
+    private static void mergeApp(SoftwareApp source, SoftwareApp target) {
+        if (source == null || source.getSpec() == null) {
+            throw new ServerWebInputException("Software app spec is required");
+        }
+        if (target.getSpec() == null) {
+            target.setSpec(source.getSpec());
+            return;
+        }
+        var existingSeo = target.getSpec().getSeo();
+        mergeSpec(source.getSpec(), target.getSpec());
+        if (source.getSpec().getSeo() != null && existingSeo != null) {
+            mergeSpec(source.getSpec().getSeo(), existingSeo);
+            target.getSpec().setSeo(existingSeo);
+        }
+    }
+
+    private static void mergeVersion(SoftwareVersion source, SoftwareVersion target) {
+        if (source == null || source.getSpec() == null) {
+            throw new ServerWebInputException("Software version spec is required");
+        }
+        if (target.getSpec() == null) {
+            target.setSpec(source.getSpec());
+            return;
+        }
+        var existingChecksum = target.getSpec().getChecksum();
+        mergeSpec(source.getSpec(), target.getSpec());
+        if (source.getSpec().getChecksum() != null && existingChecksum != null) {
+            mergeSpec(source.getSpec().getChecksum(), existingChecksum);
+            target.getSpec().setChecksum(existingChecksum);
+        }
+    }
+
+    private static <T> void mergeSpec(T source, T target) {
+        if (source == null) {
+            throw new ServerWebInputException("Resource spec is required");
+        }
+        if (target == null) {
+            throw new ServerWebInputException("Stored resource spec is missing");
+        }
+        var wrapper = new BeanWrapperImpl(source);
+        var nullProperties = java.util.Arrays.stream(wrapper.getPropertyDescriptors())
+            .map(descriptor -> descriptor.getName())
+            .filter(property -> wrapper.getPropertyValue(property) == null)
+            .toArray(String[]::new);
+        BeanUtils.copyProperties(source, target, nullProperties);
+    }
+
+    private static final class AppStatsAccumulator {
+
+        private long total;
+        private long published;
+        private long downloads;
+        private final LinkedHashSet<String> platforms = new LinkedHashSet<>();
+
+        private void accept(SoftwareApp app) {
+            total++;
+            var spec = app.getSpec();
+            if (spec != null && Boolean.TRUE.equals(spec.getPublished())) {
+                published++;
+            }
+            if (app.getStatus() != null && app.getStatus().getDownloadCount() != null) {
+                downloads += app.getStatus().getDownloadCount();
+            }
+            if (spec != null) {
+                platformValues(spec).forEach(platforms::add);
+            }
+        }
+    }
+
+    private static final class DownloadAssetStatsAccumulator {
+
+        private long total;
+        private long enabled;
+        private long protectedCount;
+        private long downloads;
+
+        private void accept(DownloadAsset asset) {
+            total++;
+            var spec = asset.getSpec();
+            if (spec != null && Boolean.TRUE.equals(spec.getEnabled())) {
+                enabled++;
+            }
+            if (spec != null && (Boolean.TRUE.equals(spec.getRequiresLogin())
+                || Boolean.TRUE.equals(spec.getRequiresCaptcha())
+                || hasText(spec.getExtractionCode())
+                || hasText(spec.getPasswordSecretName()))) {
+                protectedCount++;
+            }
+            if (asset.getStatus() != null && asset.getStatus().getDownloadCount() != null) {
+                downloads += Math.max(0L, asset.getStatus().getDownloadCount());
+            }
+        }
+
+        private DownloadAssetStatsVo toVo() {
+            return DownloadAssetStatsVo.builder()
+                .total(total)
+                .enabled(enabled)
+                .disabled(total - enabled)
+                .protectedCount(protectedCount)
+                .downloads(downloads)
+                .build();
+        }
     }
 }

@@ -121,7 +121,7 @@ export function splitOptionText(value?: string[] | string) {
 }
 
 export function platformTokens(
-  platform?: string,
+  platform?: string[] | string,
   platformOptions: SoftwareOptionItem[] = defaultSoftwareOptions.platforms,
 ): PlatformToken[] {
   const tokens = splitOptionText(platform)

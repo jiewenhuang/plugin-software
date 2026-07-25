@@ -25,6 +25,16 @@ import run.jiewen.software.extension.SoftwareTag;
 import run.jiewen.software.extension.SoftwareTopic;
 import run.jiewen.software.extension.SoftwareVersion;
 import run.jiewen.software.finders.SoftwareConsoleService;
+import run.jiewen.software.api.DownloadAssetCommand;
+import run.jiewen.software.api.DownloadAssetSecretCommand;
+import run.jiewen.software.api.SoftwareAppCommand;
+import run.jiewen.software.api.SoftwareCategoryCommand;
+import run.jiewen.software.api.SoftwareTagCommand;
+import run.jiewen.software.api.SoftwareTopicCommand;
+import run.jiewen.software.api.SoftwareVersionCommand;
+import run.jiewen.software.vo.DownloadAssetConsoleVo;
+import run.jiewen.software.vo.DownloadAssetSecretVo;
+import run.jiewen.software.vo.DownloadAssetStatsVo;
 import run.jiewen.software.vo.SoftwareConsoleStatsVo;
 
 @Component
@@ -55,11 +65,14 @@ public class SoftwareConsoleEndpoint implements CustomEndpoint {
                     .tag(optionTag)
                     .response(responseBuilder().implementation(SoftwareOptions.class)))
             .GET("apps", this::listApps,
-                builder -> builder.operationId("ListSoftwareApps")
-                    .description("List software apps for Console.")
-                    .tag(appTag)
-                    .response(responseBuilder()
-                        .implementation(ListResult.generateGenericClass(SoftwareApp.class))))
+                builder -> {
+                    builder.operationId("ListSoftwareApps")
+                        .description("List software apps for Console.")
+                        .tag(appTag)
+                        .response(responseBuilder()
+                            .implementation(ListResult.generateGenericClass(SoftwareApp.class)));
+                    SoftwareConsoleQuery.buildAppParameters(builder);
+                })
             .GET("apps/stats", this::getAppStats,
                 builder -> builder.operationId("GetSoftwareAppStats")
                     .description("Get software app stats and list facets for Console.")
@@ -68,87 +81,135 @@ public class SoftwareConsoleEndpoint implements CustomEndpoint {
             .GET("apps/{name}", this::getApp,
                 builder -> namedResource(builder, appTag, "GetSoftwareApp", SoftwareApp.class))
             .POST("apps", this::createApp,
-                builder -> resourceBody(builder, appTag, "CreateSoftwareApp", SoftwareApp.class))
-            .PUT("apps/{name}", this::updateApp,
-                builder -> resourceBody(builder, appTag, "UpdateSoftwareApp", SoftwareApp.class))
+                builder -> createBody(builder, appTag, "CreateSoftwareApp",
+                    SoftwareAppCommand.class, SoftwareApp.class))
+            .PUT("apps/{name}", this::replaceApp,
+                builder -> namedBody(builder, appTag, "UpdateSoftwareApp",
+                    SoftwareAppCommand.class, SoftwareApp.class))
+            .PATCH("apps/{name}", this::updateApp,
+                builder -> namedBody(builder, appTag, "PatchSoftwareApp",
+                    SoftwareAppCommand.class, SoftwareApp.class))
             .DELETE("apps/{name}", this::deleteApp,
                 builder -> namedResource(builder, appTag, "DeleteSoftwareApp", SoftwareApp.class))
 
             .GET("versions", this::listVersions,
-                builder -> builder.operationId("ListSoftwareVersions")
-                    .description("List software versions for Console.")
-                    .tag(versionTag)
-                    .response(responseBuilder()
-                        .implementation(ListResult.generateGenericClass(SoftwareVersion.class))))
+                builder -> {
+                    builder.operationId("ListSoftwareVersions")
+                        .description("List software versions for Console.")
+                        .tag(versionTag)
+                        .response(responseBuilder()
+                            .implementation(ListResult.generateGenericClass(SoftwareVersion.class)));
+                    SoftwareConsoleQuery.buildVersionParameters(builder);
+                })
             .POST("versions", this::createVersion,
-                builder -> resourceBody(builder, versionTag, "CreateSoftwareVersion",
-                    SoftwareVersion.class))
-            .PUT("versions/{name}", this::updateVersion,
-                builder -> resourceBody(builder, versionTag, "UpdateSoftwareVersion",
-                    SoftwareVersion.class))
+                builder -> createBody(builder, versionTag, "CreateSoftwareVersion",
+                    SoftwareVersionCommand.class, SoftwareVersion.class))
+            .PUT("versions/{name}", this::replaceVersion,
+                builder -> namedBody(builder, versionTag, "UpdateSoftwareVersion",
+                    SoftwareVersionCommand.class, SoftwareVersion.class))
+            .PATCH("versions/{name}", this::updateVersion,
+                builder -> namedBody(builder, versionTag, "PatchSoftwareVersion",
+                    SoftwareVersionCommand.class, SoftwareVersion.class))
             .DELETE("versions/{name}", this::deleteVersion,
                 builder -> namedResource(builder, versionTag, "DeleteSoftwareVersion",
                     SoftwareVersion.class))
 
             .GET("download-assets", this::listDownloadAssets,
-                builder -> builder.operationId("ListDownloadAssets")
-                    .description("List download assets for Console.")
+                builder -> {
+                    builder.operationId("ListDownloadAssets")
+                        .description("List secret-free download assets for Console.")
+                        .tag(assetTag)
+                        .response(responseBuilder().implementation(
+                            ListResult.generateGenericClass(DownloadAssetConsoleVo.class)));
+                    SoftwareConsoleQuery.buildDownloadAssetParameters(builder);
+                })
+            .GET("download-assets/stats", this::getDownloadAssetStats,
+                builder -> builder.operationId("GetDownloadAssetStats")
+                    .description("Get aggregate download asset statistics for Console.")
                     .tag(assetTag)
-                    .response(responseBuilder()
-                        .implementation(ListResult.generateGenericClass(DownloadAsset.class))))
+                    .response(responseBuilder().implementation(DownloadAssetStatsVo.class)))
             .POST("download-assets", this::createDownloadAsset,
-                builder -> resourceBody(builder, assetTag, "CreateDownloadAsset",
-                    DownloadAsset.class))
-            .PUT("download-assets/{name}", this::updateDownloadAsset,
-                builder -> resourceBody(builder, assetTag, "UpdateDownloadAsset",
-                    DownloadAsset.class))
+                builder -> createBody(builder, assetTag, "CreateDownloadAsset",
+                    DownloadAssetCommand.class, DownloadAssetConsoleVo.class))
+            .PUT("download-assets/{name}", this::replaceDownloadAsset,
+                builder -> namedBody(builder, assetTag, "UpdateDownloadAsset",
+                    DownloadAssetCommand.class, DownloadAssetConsoleVo.class))
+            .PATCH("download-assets/{name}", this::updateDownloadAsset,
+                builder -> namedBody(builder, assetTag, "PatchDownloadAsset",
+                    DownloadAssetCommand.class, DownloadAssetConsoleVo.class))
+            .GET("download-assets/{name}/secrets", this::getDownloadAssetSecret,
+                builder -> namedResource(builder, assetTag, "GetDownloadAssetSecret",
+                    DownloadAssetSecretVo.class))
+            .PUT("download-assets/{name}/secrets", this::updateDownloadAssetSecret,
+                builder -> namedBody(builder, assetTag, "UpdateDownloadAssetSecret",
+                    DownloadAssetSecretCommand.class, DownloadAssetSecretVo.class))
             .DELETE("download-assets/{name}", this::deleteDownloadAsset,
                 builder -> namedResource(builder, assetTag, "DeleteDownloadAsset",
-                    DownloadAsset.class))
+                    DownloadAssetConsoleVo.class))
 
             .GET("categories", this::listCategories,
-                builder -> builder.operationId("ListSoftwareCategories")
-                    .description("List software categories for Console.")
-                    .tag(categoryTag)
-                    .response(responseBuilder()
-                        .implementation(ListResult.generateGenericClass(SoftwareCategory.class))))
+                builder -> {
+                    builder.operationId("ListSoftwareCategories")
+                        .description("List software categories for Console.")
+                        .tag(categoryTag)
+                        .response(responseBuilder()
+                            .implementation(ListResult.generateGenericClass(SoftwareCategory.class)));
+                    SoftwareConsoleQuery.buildCategoryParameters(builder);
+                })
             .POST("categories", this::createCategory,
-                builder -> resourceBody(builder, categoryTag, "CreateSoftwareCategory",
-                    SoftwareCategory.class))
-            .PUT("categories/{name}", this::updateCategory,
-                builder -> resourceBody(builder, categoryTag, "UpdateSoftwareCategory",
-                    SoftwareCategory.class))
+                builder -> createBody(builder, categoryTag, "CreateSoftwareCategory",
+                    SoftwareCategoryCommand.class, SoftwareCategory.class))
+            .PUT("categories/{name}", this::replaceCategory,
+                builder -> namedBody(builder, categoryTag, "UpdateSoftwareCategory",
+                    SoftwareCategoryCommand.class, SoftwareCategory.class))
+            .PATCH("categories/{name}", this::updateCategory,
+                builder -> namedBody(builder, categoryTag, "PatchSoftwareCategory",
+                    SoftwareCategoryCommand.class, SoftwareCategory.class))
             .DELETE("categories/{name}", this::deleteCategory,
                 builder -> namedResource(builder, categoryTag, "DeleteSoftwareCategory",
                     SoftwareCategory.class))
 
             .GET("tags", this::listTags,
-                builder -> builder.operationId("ListSoftwareTags")
-                    .description("List software tags for Console.")
-                    .tag(tagTag)
-                    .response(responseBuilder()
-                        .implementation(ListResult.generateGenericClass(SoftwareTag.class))))
+                builder -> {
+                    builder.operationId("ListSoftwareTags")
+                        .description("List software tags for Console.")
+                        .tag(tagTag)
+                        .response(responseBuilder()
+                            .implementation(ListResult.generateGenericClass(SoftwareTag.class)));
+                    SoftwareConsoleQuery.buildTagParameters(builder);
+                })
             .GET("tags/{name}", this::getTag,
                 builder -> namedResource(builder, tagTag, "GetSoftwareTag", SoftwareTag.class))
             .POST("tags", this::createTag,
-                builder -> resourceBody(builder, tagTag, "CreateSoftwareTag", SoftwareTag.class))
-            .PUT("tags/{name}", this::updateTag,
-                builder -> resourceBody(builder, tagTag, "UpdateSoftwareTag", SoftwareTag.class))
+                builder -> createBody(builder, tagTag, "CreateSoftwareTag",
+                    SoftwareTagCommand.class, SoftwareTag.class))
+            .PUT("tags/{name}", this::replaceTag,
+                builder -> namedBody(builder, tagTag, "UpdateSoftwareTag",
+                    SoftwareTagCommand.class, SoftwareTag.class))
+            .PATCH("tags/{name}", this::updateTag,
+                builder -> namedBody(builder, tagTag, "PatchSoftwareTag",
+                    SoftwareTagCommand.class, SoftwareTag.class))
             .DELETE("tags/{name}", this::deleteTag,
                 builder -> namedResource(builder, tagTag, "DeleteSoftwareTag", SoftwareTag.class))
 
             .GET("topics", this::listTopics,
-                builder -> builder.operationId("ListSoftwareTopics")
-                    .description("List software topics for Console.")
-                    .tag(topicTag)
-                    .response(responseBuilder()
-                        .implementation(ListResult.generateGenericClass(SoftwareTopic.class))))
+                builder -> {
+                    builder.operationId("ListSoftwareTopics")
+                        .description("List software topics for Console.")
+                        .tag(topicTag)
+                        .response(responseBuilder()
+                            .implementation(ListResult.generateGenericClass(SoftwareTopic.class)));
+                    SoftwareConsoleQuery.buildTopicParameters(builder);
+                })
             .POST("topics", this::createTopic,
-                builder -> resourceBody(builder, topicTag, "CreateSoftwareTopic",
-                    SoftwareTopic.class))
-            .PUT("topics/{name}", this::updateTopic,
-                builder -> resourceBody(builder, topicTag, "UpdateSoftwareTopic",
-                    SoftwareTopic.class))
+                builder -> createBody(builder, topicTag, "CreateSoftwareTopic",
+                    SoftwareTopicCommand.class, SoftwareTopic.class))
+            .PUT("topics/{name}", this::replaceTopic,
+                builder -> namedBody(builder, topicTag, "UpdateSoftwareTopic",
+                    SoftwareTopicCommand.class, SoftwareTopic.class))
+            .PATCH("topics/{name}", this::updateTopic,
+                builder -> namedBody(builder, topicTag, "PatchSoftwareTopic",
+                    SoftwareTopicCommand.class, SoftwareTopic.class))
             .DELETE("topics/{name}", this::deleteTopic,
                 builder -> namedResource(builder, topicTag, "DeleteSoftwareTopic",
                     SoftwareTopic.class))
@@ -188,14 +249,23 @@ public class SoftwareConsoleEndpoint implements CustomEndpoint {
     }
 
     private Mono<ServerResponse> createApp(ServerRequest request) {
-        return request.bodyToMono(SoftwareApp.class)
+        return request.bodyToMono(SoftwareAppCommand.class)
+            .map(SoftwareAppCommand::toExtension)
             .flatMap(softwareConsoleService::createApp)
             .flatMap(app -> ServerResponse.ok().bodyValue(app));
     }
 
     private Mono<ServerResponse> updateApp(ServerRequest request) {
-        return request.bodyToMono(SoftwareApp.class)
+        return request.bodyToMono(SoftwareAppCommand.class)
+            .map(SoftwareAppCommand::toExtension)
             .flatMap(app -> softwareConsoleService.updateApp(request.pathVariable("name"), app))
+            .flatMap(app -> ServerResponse.ok().bodyValue(app));
+    }
+
+    private Mono<ServerResponse> replaceApp(ServerRequest request) {
+        return request.bodyToMono(SoftwareAppCommand.class)
+            .map(SoftwareAppCommand::toExtension)
+            .flatMap(app -> softwareConsoleService.replaceApp(request.pathVariable("name"), app))
             .flatMap(app -> ServerResponse.ok().bodyValue(app));
     }
 
@@ -210,14 +280,24 @@ public class SoftwareConsoleEndpoint implements CustomEndpoint {
     }
 
     private Mono<ServerResponse> createVersion(ServerRequest request) {
-        return request.bodyToMono(SoftwareVersion.class)
+        return request.bodyToMono(SoftwareVersionCommand.class)
+            .map(SoftwareVersionCommand::toExtension)
             .flatMap(softwareConsoleService::createVersion)
             .flatMap(version -> ServerResponse.ok().bodyValue(version));
     }
 
     private Mono<ServerResponse> updateVersion(ServerRequest request) {
-        return request.bodyToMono(SoftwareVersion.class)
+        return request.bodyToMono(SoftwareVersionCommand.class)
+            .map(SoftwareVersionCommand::toExtension)
             .flatMap(version -> softwareConsoleService.updateVersion(
+                request.pathVariable("name"), version))
+            .flatMap(version -> ServerResponse.ok().bodyValue(version));
+    }
+
+    private Mono<ServerResponse> replaceVersion(ServerRequest request) {
+        return request.bodyToMono(SoftwareVersionCommand.class)
+            .map(SoftwareVersionCommand::toExtension)
+            .flatMap(version -> softwareConsoleService.replaceVersion(
                 request.pathVariable("name"), version))
             .flatMap(version -> ServerResponse.ok().bodyValue(version));
     }
@@ -230,24 +310,59 @@ public class SoftwareConsoleEndpoint implements CustomEndpoint {
     private Mono<ServerResponse> listDownloadAssets(ServerRequest request) {
         return softwareConsoleService.listDownloadAssets(
                 new SoftwareConsoleQuery(request.exchange()))
+            .map(result -> new ListResult<>(result.getPage(), result.getSize(), result.getTotal(),
+                result.getItems().stream().map(DownloadAssetConsoleVo::from).toList()))
             .flatMap(result -> ServerResponse.ok().bodyValue(result));
     }
 
     private Mono<ServerResponse> createDownloadAsset(ServerRequest request) {
-        return request.bodyToMono(DownloadAsset.class)
+        return request.bodyToMono(DownloadAssetCommand.class)
+            .map(DownloadAssetCommand::toExtension)
             .flatMap(softwareConsoleService::createDownloadAsset)
+            .map(DownloadAssetConsoleVo::from)
             .flatMap(asset -> ServerResponse.ok().bodyValue(asset));
     }
 
+    private Mono<ServerResponse> getDownloadAssetStats(ServerRequest request) {
+        return softwareConsoleService.getDownloadAssetStats()
+            .flatMap(stats -> ServerResponse.ok()
+                .contentType(MediaType.APPLICATION_JSON)
+                .bodyValue(stats));
+    }
+
     private Mono<ServerResponse> updateDownloadAsset(ServerRequest request) {
-        return request.bodyToMono(DownloadAsset.class)
+        return request.bodyToMono(DownloadAssetCommand.class)
+            .map(DownloadAssetCommand::toExtension)
             .flatMap(asset -> softwareConsoleService.updateDownloadAsset(
                 request.pathVariable("name"), asset))
+            .map(DownloadAssetConsoleVo::from)
             .flatMap(asset -> ServerResponse.ok().bodyValue(asset));
+    }
+
+    private Mono<ServerResponse> replaceDownloadAsset(ServerRequest request) {
+        return request.bodyToMono(DownloadAssetCommand.class)
+            .map(DownloadAssetCommand::toExtension)
+            .flatMap(asset -> softwareConsoleService.replaceDownloadAsset(
+                request.pathVariable("name"), asset))
+            .map(DownloadAssetConsoleVo::from)
+            .flatMap(asset -> ServerResponse.ok().bodyValue(asset));
+    }
+
+    private Mono<ServerResponse> getDownloadAssetSecret(ServerRequest request) {
+        return softwareConsoleService.getDownloadAssetSecret(request.pathVariable("name"))
+            .flatMap(secret -> ServerResponse.ok().bodyValue(secret));
+    }
+
+    private Mono<ServerResponse> updateDownloadAssetSecret(ServerRequest request) {
+        return request.bodyToMono(DownloadAssetSecretCommand.class)
+            .flatMap(command -> softwareConsoleService.updateDownloadAssetSecret(
+                request.pathVariable("name"), command))
+            .flatMap(secret -> ServerResponse.ok().bodyValue(secret));
     }
 
     private Mono<ServerResponse> deleteDownloadAsset(ServerRequest request) {
         return softwareConsoleService.deleteDownloadAsset(request.pathVariable("name"))
+            .map(DownloadAssetConsoleVo::from)
             .flatMap(asset -> ServerResponse.ok().bodyValue(asset));
     }
 
@@ -257,14 +372,24 @@ public class SoftwareConsoleEndpoint implements CustomEndpoint {
     }
 
     private Mono<ServerResponse> createCategory(ServerRequest request) {
-        return request.bodyToMono(SoftwareCategory.class)
+        return request.bodyToMono(SoftwareCategoryCommand.class)
+            .map(SoftwareCategoryCommand::toExtension)
             .flatMap(softwareConsoleService::createCategory)
             .flatMap(category -> ServerResponse.ok().bodyValue(category));
     }
 
     private Mono<ServerResponse> updateCategory(ServerRequest request) {
-        return request.bodyToMono(SoftwareCategory.class)
+        return request.bodyToMono(SoftwareCategoryCommand.class)
+            .map(SoftwareCategoryCommand::toExtension)
             .flatMap(category -> softwareConsoleService.updateCategory(
+                request.pathVariable("name"), category))
+            .flatMap(category -> ServerResponse.ok().bodyValue(category));
+    }
+
+    private Mono<ServerResponse> replaceCategory(ServerRequest request) {
+        return request.bodyToMono(SoftwareCategoryCommand.class)
+            .map(SoftwareCategoryCommand::toExtension)
+            .flatMap(category -> softwareConsoleService.replaceCategory(
                 request.pathVariable("name"), category))
             .flatMap(category -> ServerResponse.ok().bodyValue(category));
     }
@@ -285,14 +410,23 @@ public class SoftwareConsoleEndpoint implements CustomEndpoint {
     }
 
     private Mono<ServerResponse> createTag(ServerRequest request) {
-        return request.bodyToMono(SoftwareTag.class)
+        return request.bodyToMono(SoftwareTagCommand.class)
+            .map(SoftwareTagCommand::toExtension)
             .flatMap(softwareConsoleService::createTag)
             .flatMap(tag -> ServerResponse.ok().bodyValue(tag));
     }
 
     private Mono<ServerResponse> updateTag(ServerRequest request) {
-        return request.bodyToMono(SoftwareTag.class)
+        return request.bodyToMono(SoftwareTagCommand.class)
+            .map(SoftwareTagCommand::toExtension)
             .flatMap(tag -> softwareConsoleService.updateTag(request.pathVariable("name"), tag))
+            .flatMap(tag -> ServerResponse.ok().bodyValue(tag));
+    }
+
+    private Mono<ServerResponse> replaceTag(ServerRequest request) {
+        return request.bodyToMono(SoftwareTagCommand.class)
+            .map(SoftwareTagCommand::toExtension)
+            .flatMap(tag -> softwareConsoleService.replaceTag(request.pathVariable("name"), tag))
             .flatMap(tag -> ServerResponse.ok().bodyValue(tag));
     }
 
@@ -307,14 +441,24 @@ public class SoftwareConsoleEndpoint implements CustomEndpoint {
     }
 
     private Mono<ServerResponse> createTopic(ServerRequest request) {
-        return request.bodyToMono(SoftwareTopic.class)
+        return request.bodyToMono(SoftwareTopicCommand.class)
+            .map(SoftwareTopicCommand::toExtension)
             .flatMap(softwareConsoleService::createTopic)
             .flatMap(topic -> ServerResponse.ok().bodyValue(topic));
     }
 
     private Mono<ServerResponse> updateTopic(ServerRequest request) {
-        return request.bodyToMono(SoftwareTopic.class)
+        return request.bodyToMono(SoftwareTopicCommand.class)
+            .map(SoftwareTopicCommand::toExtension)
             .flatMap(topic -> softwareConsoleService.updateTopic(
+                request.pathVariable("name"), topic))
+            .flatMap(topic -> ServerResponse.ok().bodyValue(topic));
+    }
+
+    private Mono<ServerResponse> replaceTopic(ServerRequest request) {
+        return request.bodyToMono(SoftwareTopicCommand.class)
+            .map(SoftwareTopicCommand::toExtension)
+            .flatMap(topic -> softwareConsoleService.replaceTopic(
                 request.pathVariable("name"), topic))
             .flatMap(topic -> ServerResponse.ok().bodyValue(topic));
     }
@@ -336,20 +480,25 @@ public class SoftwareConsoleEndpoint implements CustomEndpoint {
             .response(responseBuilder().implementation(type));
     }
 
-    private static void resourceBody(org.springdoc.core.fn.builders.operation.Builder builder,
-        String tag, String operationId, Class<?> type) {
+    private static void createBody(org.springdoc.core.fn.builders.operation.Builder builder,
+        String tag, String operationId, Class<?> commandType, Class<?> responseType) {
         builder.operationId(operationId)
             .tag(tag)
             .requestBody(requestBodyBuilder()
                 .required(true)
                 .content(contentBuilder()
                     .mediaType(MediaType.APPLICATION_JSON_VALUE)
-                    .schema(schemaBuilder().implementation(type))))
-            .response(responseBuilder().implementation(type));
+                    .schema(schemaBuilder().implementation(commandType))))
+            .response(responseBuilder().implementation(responseType));
+    }
+
+    private static void namedBody(org.springdoc.core.fn.builders.operation.Builder builder,
+        String tag, String operationId, Class<?> commandType, Class<?> responseType) {
+        createBody(builder, tag, operationId, commandType, responseType);
         builder.parameter(parameterBuilder()
             .in(ParameterIn.PATH)
             .name("name")
-            .required(false)
+            .required(true)
             .implementation(String.class));
     }
 }

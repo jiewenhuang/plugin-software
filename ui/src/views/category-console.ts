@@ -77,7 +77,7 @@ export function buildCategoryRows(categories: SoftwareCategory[]): CategoryRow[]
 }
 
 export function buildCategoryTree(categories: SoftwareCategory[]): CategoryTreeNode[] {
-  const rows = sortCategoryRows(buildCategoryRows(categories), 'priority-desc')
+  const rows = sortCategoryRows(buildCategoryRows(categories), 'priority-asc')
   const childrenByParent = new Map<string, CategoryRow[]>()
   const rowByName = new Map(rows.map((row) => [row.name, row]))
 

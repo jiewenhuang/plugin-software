@@ -33,7 +33,7 @@ import {
   getTag,
   getSoftwareOptions,
   listApps,
-  listCategories,
+  listAllCategories,
   type SoftwareApp,
   type SoftwareCategory,
   type SoftwareConsoleStats,
@@ -191,7 +191,7 @@ function openPublicPage(app: SoftwareApp) {
 async function fetchCategories() {
   categoriesLoading.value = true
   try {
-    const result = await listCategories({ page: 1, size: 200 })
+    const result = await listAllCategories()
     categories.value = result.items
   } finally {
     categoriesLoading.value = false
@@ -248,7 +248,7 @@ function replaceListUrl() {
   const nextUrl = `${window.location.pathname}${buildSoftwareListQuery(currentQueryState())}`
   const currentUrl = `${window.location.pathname}${window.location.search}`
   if (nextUrl !== currentUrl) {
-    window.history.replaceState(null, '', nextUrl)
+    window.history.replaceState(window.history.state, '', nextUrl)
   }
 }
 
@@ -585,7 +585,7 @@ onBeforeUnmount(() => {
                 <td>
                   <div class="platform-cell">
                     <span
-                      v-for="token in platformTokens(app.spec.platform, softwareOptions.platforms)"
+                      v-for="token in platformTokens(app.spec.platforms ?? app.spec.platform, softwareOptions.platforms)"
                       :key="`${app.metadata?.name}-${token.label}`"
                       class="platform-token"
                       :class="token.className"

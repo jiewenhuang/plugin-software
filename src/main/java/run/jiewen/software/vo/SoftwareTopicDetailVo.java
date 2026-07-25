@@ -21,7 +21,7 @@ public class SoftwareTopicDetailVo {
 
     String cover;
 
-    List<SoftwareTopic.Item> items;
+    List<SoftwareTopicItemVo> items;
 
     List<SoftwareAppVo> apps;
 
@@ -32,6 +32,11 @@ public class SoftwareTopicDetailVo {
     Integer appCount;
 
     public static SoftwareTopicDetailVo from(SoftwareTopic topic, List<SoftwareAppVo> apps) {
+        return from(topic, apps, List.of());
+    }
+
+    public static SoftwareTopicDetailVo from(SoftwareTopic topic, List<SoftwareAppVo> apps,
+        List<SoftwareTopicItemVo> items) {
         var metadata = topic.getMetadata();
         var spec = topic.getSpec();
         var status = topic.getStatus();
@@ -42,7 +47,7 @@ public class SoftwareTopicDetailVo {
             .subtitle(spec == null ? null : spec.getSubtitle())
             .description(spec == null ? null : spec.getDescription())
             .cover(spec == null ? null : spec.getCover())
-            .items(spec == null ? null : spec.getItems())
+            .items(items == null ? List.of() : items)
             .apps(apps)
             .featured(spec == null ? null : spec.getFeatured())
             .priority(spec == null ? null : spec.getPriority())

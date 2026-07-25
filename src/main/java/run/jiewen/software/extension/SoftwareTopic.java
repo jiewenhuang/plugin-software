@@ -21,6 +21,7 @@ public class SoftwareTopic extends AbstractExtension {
     private Status status;
 
     @Data
+    @Schema(name = "SoftwareTopicSpec")
     public static class Spec {
 
         @Schema(requiredMode = REQUIRED)
@@ -47,6 +48,7 @@ public class SoftwareTopic extends AbstractExtension {
     }
 
     @Data
+    @Schema(name = "SoftwareTopicItem")
     public static class Item {
 
         @Schema(requiredMode = REQUIRED, description = "SoftwareApp metadata.name.")
@@ -58,8 +60,11 @@ public class SoftwareTopic extends AbstractExtension {
     }
 
     @Data
+    @Schema(name = "SoftwareTopicStatus")
     public static class Status {
 
         private Integer appCount;
+
+        private Long observedVersion;
     }
 }

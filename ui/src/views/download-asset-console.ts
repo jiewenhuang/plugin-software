@@ -53,18 +53,6 @@ export interface DownloadAssetStatusMeta {
   className: 'online' | 'failed'
 }
 
-export interface DownloadSourceInsight {
-  label: string
-  value: number
-}
-
-export function downloadAssetListParams() {
-  return {
-    page: 1,
-    size: 1000,
-  }
-}
-
 export function buildDownloadAssetStats(assets: DownloadAsset[]): DownloadAssetStats {
   return assets.reduce<DownloadAssetStats>(
     (stats, asset) => {
@@ -107,7 +95,7 @@ export function buildDownloadAssetRows(
       appIcon: app?.spec.icon || '',
       appInitial: appInitial(app, asset.spec.appName),
       versionName: asset.spec.versionName || '未关联版本',
-      platforms: platformTokens(app?.spec.platform, options.platforms),
+      platforms: platformTokens(app?.spec.platforms ?? app?.spec.platform, options.platforms),
       typeValue,
       typeLabel: downloadTypeLabel(typeValue, options),
       providerValue,
@@ -219,7 +207,10 @@ export function downloadProviderLabel(
 }
 
 export function copyableUrl(asset: DownloadAsset) {
-  return asset.spec.url?.trim() || '未设置 URL'
+  if (asset.spec.url?.trim()) {
+    return asset.spec.url.trim()
+  }
+  return asset.spec.hasUrl ? '••••••（需敏感配置权限）' : '未设置 URL'
 }
 
 export function assetStatus(asset: DownloadAsset): DownloadAssetStatusMeta {
@@ -242,7 +233,12 @@ export function assetProtectionText(asset: DownloadAsset) {
   if (asset.spec.requiresCaptcha) {
     protections.push('验证码')
   }
-  if (asset.spec.passwordSecretName || asset.spec.extractionCode) {
+  if (
+    asset.spec.passwordSecretName ||
+    asset.spec.extractionCode ||
+    asset.spec.hasPasswordSecret ||
+    asset.spec.hasExtractionCode
+  ) {
     protections.push('提取码')
   }
   return protections.length ? protections.join(' / ') : '公开'
@@ -259,37 +255,8 @@ export function formatDownloadNumber(value?: number) {
   return new Intl.NumberFormat('zh-CN').format(value || 0)
 }
 
-export function buildDownloadSourceInsights(asset: DownloadAsset | undefined): DownloadSourceInsight[] {
-  if (!asset) {
-    return []
-  }
-
-  const total = asset.status?.downloadCount || 0
-  const region = asset.spec.region || '默认区域'
-  return [
-    {
-      label: region,
-      value: total,
-    },
-  ]
-}
-
-export function linkFingerprintCells(value: string, size = 9) {
-  const seed = value || 'download-asset'
-  return Array.from({ length: size * size }, (_, index) => {
-    const charCode = seed.charCodeAt(index % seed.length)
-    const row = Math.floor(index / size)
-    const col = index % size
-    const finder =
-      (row < 3 && col < 3) ||
-      (row < 3 && col >= size - 3) ||
-      (row >= size - 3 && col < 3)
-    return finder || ((charCode + row * 7 + col * 11 + index) % 5 < 2)
-  })
-}
-
 export function platformTokens(
-  platform?: string,
+  platform?: string[] | string,
   platformOptions = defaultSoftwareOptions.platforms,
 ): PlatformToken[] {
   return buildPlatformTokens(platform, platformOptions)
@@ -308,6 +275,8 @@ function assetHasProtection(asset: DownloadAsset) {
     asset.spec.requiresLogin ||
       asset.spec.requiresCaptcha ||
       asset.spec.passwordSecretName ||
-      asset.spec.extractionCode,
+      asset.spec.extractionCode ||
+      asset.spec.hasPasswordSecret ||
+      asset.spec.hasExtractionCode,
   )
 }

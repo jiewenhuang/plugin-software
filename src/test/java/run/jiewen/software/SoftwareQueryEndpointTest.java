@@ -6,7 +6,9 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.util.List;
+import java.time.Instant;
 import org.junit.jupiter.api.Test;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.test.web.reactive.server.WebTestClient;
 import org.springframework.web.server.ResponseStatusException;
@@ -15,6 +17,8 @@ import run.halo.app.extension.ListOptions;
 import run.halo.app.extension.ListResult;
 import run.jiewen.software.finders.SoftwarePublicQueryService;
 import run.jiewen.software.vo.DownloadAssetVo;
+import run.jiewen.software.vo.DownloadGrantVo;
+import run.jiewen.software.vo.DownloadSecurityVo;
 import run.jiewen.software.vo.SoftwareAppDetailVo;
 import run.jiewen.software.vo.SoftwareAppVo;
 import run.jiewen.software.vo.SoftwareCategoryVo;
@@ -88,9 +92,61 @@ class SoftwareQueryEndpointTest {
             .uri("/apps/cleanmymac-x/download")
             .exchange()
             .expectStatus().isOk()
+            .expectHeader().valueMatches(HttpHeaders.CACHE_CONTROL, ".*no-store.*")
+            .expectHeader().valueEquals(HttpHeaders.PRAGMA, "no-cache")
+            .expectHeader().valueEquals(HttpHeaders.VARY, "Cookie", "Authorization")
             .expectBody()
             .jsonPath("$.name").isEqualTo("asset-1")
             .jsonPath("$.url").isEqualTo("https://example.com/cleanmymac.dmg");
+    }
+
+    @Test
+    void issuesNonCacheableDownloadGrant() {
+        when(service.grantDownload(any(), any()))
+            .thenReturn(Mono.just(DownloadGrantVo.builder()
+                .assetName("asset-1")
+                .versionName("version-1")
+                .title("Universal DMG")
+                .url("https://example.com/cleanmymac.dmg")
+                .expiresAt(Instant.parse("2026-07-26T00:01:00Z"))
+                .build()));
+
+        client.post()
+            .uri("/download-grants")
+            .header(HttpHeaders.CONTENT_TYPE, "application/json")
+            .bodyValue("""
+                {"slug":"cleanmymac-x","captchaToken":"verified-token"}
+                """)
+            .exchange()
+            .expectStatus().isOk()
+            .expectHeader().valueMatches(HttpHeaders.CACHE_CONTROL, ".*no-store.*")
+            .expectHeader().valueEquals(HttpHeaders.PRAGMA, "no-cache")
+            .expectHeader().valueEquals(HttpHeaders.VARY, "Cookie", "Authorization")
+            .expectBody()
+            .jsonPath("$.assetName").isEqualTo("asset-1")
+            .jsonPath("$.url").isEqualTo("https://example.com/cleanmymac.dmg");
+    }
+
+    @Test
+    void getsPublicCaptchaBootstrapWithoutCaching() {
+        when(service.getDownloadSecurityOptions())
+            .thenReturn(Mono.just(DownloadSecurityVo.builder()
+                .captchaProvider("turnstile")
+                .captchaSiteKey("site-key")
+                .captchaConfigured(true)
+                .build()));
+
+        client.get()
+            .uri("/download-options")
+            .exchange()
+            .expectStatus().isOk()
+            .expectHeader().valueMatches(HttpHeaders.CACHE_CONTROL, ".*no-store.*")
+            .expectHeader().valueEquals(HttpHeaders.PRAGMA, "no-cache")
+            .expectBody()
+            .jsonPath("$.captchaProvider").isEqualTo("turnstile")
+            .jsonPath("$.captchaSiteKey").isEqualTo("site-key")
+            .jsonPath("$.captchaConfigured").isEqualTo(true)
+            .jsonPath("$.captchaSecretName").doesNotExist();
     }
 
     @Test

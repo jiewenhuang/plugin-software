@@ -39,13 +39,6 @@ export interface TagRow {
 
 const tagColors = ['violet', 'emerald', 'orange', 'blue', 'pink', 'slate']
 
-export function tagListParams() {
-  return {
-    page: 1,
-    size: 1000,
-  }
-}
-
 export function buildTagStats(tags: SoftwareTag[]): TagStats {
   return tags.reduce<TagStats>(
     (stats, tag) => {

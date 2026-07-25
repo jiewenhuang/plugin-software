@@ -3,7 +3,7 @@ plugins {
     id "com.github.node-gradle.node" version "7.1.0"
 }
 
-group 'run.jiewen.software.ui'
+group = 'run.jiewen.software.ui'
 
 tasks.register('pnpmBuild', PnpmTask) {
     group = 'build'

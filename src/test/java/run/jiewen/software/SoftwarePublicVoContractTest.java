@@ -16,6 +16,7 @@ import run.jiewen.software.vo.SoftwareHomeVo;
 import run.jiewen.software.vo.SoftwareTagVo;
 import run.jiewen.software.vo.SoftwareTopicDetailVo;
 import run.jiewen.software.vo.SoftwareTopicVo;
+import run.jiewen.software.vo.SoftwareTopicItemVo;
 import run.jiewen.software.vo.SoftwareVersionVo;
 
 class SoftwarePublicVoContractTest {
@@ -64,6 +65,9 @@ class SoftwarePublicVoContractTest {
             "priority", "appCount");
         assertThat(fields(SoftwareTopicDetailVo.class)).containsAll(fields(SoftwareTopicVo.class));
         assertThat(fields(SoftwareTopicDetailVo.class)).contains("apps");
+        assertThat(fields(SoftwareTopicItemVo.class))
+            .contains("slug", "displayName", "permalink", "reason", "priority")
+            .doesNotContain("appName", "name");
         assertThat(fields(SoftwareVersionVo.class)).contains(
             "name", "version", "build", "releaseDate", "sizeBytes", "minOsVersion",
             "maxOsVersion", "architectures", "locale", "changelog", "installGuide",

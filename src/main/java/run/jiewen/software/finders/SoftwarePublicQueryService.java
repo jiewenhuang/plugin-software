@@ -6,6 +6,9 @@ import run.halo.app.extension.ListOptions;
 import run.halo.app.extension.ListResult;
 import run.halo.app.extension.PageRequest;
 import run.jiewen.software.vo.DownloadAssetVo;
+import run.jiewen.software.api.DownloadGrantRequest;
+import run.jiewen.software.vo.DownloadGrantVo;
+import run.jiewen.software.vo.DownloadSecurityVo;
 import run.jiewen.software.vo.SoftwareAppDetailVo;
 import run.jiewen.software.vo.SoftwareAppVo;
 import run.jiewen.software.vo.SoftwareCategoryVo;
@@ -52,6 +55,10 @@ public interface SoftwarePublicQueryService {
     Mono<DownloadAssetVo> getPrimaryDownloadAsset(String slug);
 
     Mono<DownloadAssetVo> getDownloadAsset(String slug, String assetName);
+
+    Mono<DownloadGrantVo> grantDownload(DownloadGrantRequest request, String remoteAddress);
+
+    Mono<DownloadSecurityVo> getDownloadSecurityOptions();
 
     Mono<ListResult<SoftwareCategoryVo>> listCategories(ListOptions options, PageRequest page);
 

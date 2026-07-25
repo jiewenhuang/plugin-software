@@ -4,7 +4,7 @@ plugins {
     id "run.halo.plugin.devtools" version "0.8.0"
 }
 
-group 'run.jiewen.software'
+group = 'run.jiewen.software'
 
 repositories {
     maven {
@@ -63,4 +63,26 @@ halo {
     version = '2.25'
     port = 8099
     externalUrl = 'http://localhost:8099'
+}
+
+haloPlugin {
+    openApi {
+        outputDir = file("$rootDir/api-docs/openapi/v3_0")
+        groupingRules {
+            softwareApi {
+                displayName = 'Software Plugin APIs'
+                pathsToMatch = [
+                    '/apis/software.jiewen.run/v1alpha1/**',
+                    '/apis/console.api.software.jiewen.run/v1alpha1/**',
+                    '/apis/api.software.jiewen.run/v1alpha1/**'
+                ]
+            }
+        }
+        groupedApiMappings = [
+            '/v3/api-docs/softwareApi': 'softwareApi.json'
+        ]
+        generator {
+            outputDir = file("${projectDir}/ui/src/api/generated")
+        }
+    }
 }

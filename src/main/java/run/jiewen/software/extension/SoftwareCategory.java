@@ -20,6 +20,7 @@ public class SoftwareCategory extends AbstractExtension {
     private Status status;
 
     @Data
+    @Schema(name = "SoftwareCategorySpec")
     public static class Spec {
 
         @Schema(requiredMode = REQUIRED)
@@ -42,8 +43,11 @@ public class SoftwareCategory extends AbstractExtension {
     }
 
     @Data
+    @Schema(name = "SoftwareCategoryStatus")
     public static class Status {
 
         private Integer appCount;
+
+        private Long observedVersion;
     }
 }

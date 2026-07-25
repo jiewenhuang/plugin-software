@@ -6,7 +6,6 @@ import {
   filterTagRows,
   formatTagDate,
   sortTagRows,
-  tagListParams,
   tagMatchesConsoleFilters,
   tagStatus,
 } from '../tag-console'
@@ -134,16 +133,12 @@ describe('tag console helpers', () => {
     ])
   })
 
-  it('formats dates and keeps list requests broad for local filters', () => {
+  it('formats dates and status values', () => {
     expect(tagStatus(tags[0])).toEqual({
       className: 'used',
       text: '已使用',
     })
     expect(formatTagDate('2024-05-20T14:30:00Z')).toBe('2024-05-20 14:30')
     expect(formatTagDate()).toBe('未记录')
-    expect(tagListParams()).toEqual({
-      page: 1,
-      size: 1000,
-    })
   })
 })

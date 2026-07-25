@@ -14,13 +14,13 @@ spec:
     name: jiewenhuang
     website: https://github.com/jiewenhuang
   logo: logo.png
-  homepage: https://github.com/jiewenhuang/software#readme
-  repo: https://github.com/jiewenhuang/software
-  issues: https://github.com/jiewenhuang/software/issues
-  displayName: "software"
-  description: "software - Halo 插件"
+  homepage: https://github.com/jiewenhuang/plugin-software#readme
+  repo: https://github.com/jiewenhuang/plugin-software
+  issues: https://github.com/jiewenhuang/plugin-software/issues
+  displayName: "软件中心"
+  description: "为 Halo 提供软件目录、版本、下载源、分类标签与专题管理。"
   settingName: software-settings
   configMapName: software-config
   license:
     - name: "GPL-3.0"
-      url: "https://github.com/jiewenhuang/software/blob/main/LICENSE"
+      url: "https://github.com/jiewenhuang/plugin-software/blob/main/LICENSE"

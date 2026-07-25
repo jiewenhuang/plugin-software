@@ -37,6 +37,7 @@ import ConsoleStatsGrid from '@/components/console/ConsoleStatsGrid.vue'
 import ConsoleTableCard from '@/components/console/ConsoleTableCard.vue'
 import ConsoleTextButton from '@/components/console/ConsoleTextButton.vue'
 import ConsoleToolbar from '@/components/console/ConsoleToolbar.vue'
+import { useDebouncedValue } from '@/composables/useDebouncedValue'
 import ConsoleTokenSelector, {
   type TokenSelectorOption,
 } from '@/components/console/ConsoleTokenSelector.vue'
@@ -62,6 +63,8 @@ const props = defineProps<{
   apps: SoftwareApp[]
   appsLoading?: boolean
   createRequestKey?: number
+  total?: number
+  remote?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -73,11 +76,19 @@ const emit = defineEmits<{
   'search-apps': [keyword: string]
   'selection-change': [selection: { count: number; names: string[]; titles: string[] }]
   'batch-delete': []
+  'query-change': [query: {
+    page: number
+    size: number
+    keyword: string
+    status: TopicStatusFilter
+    sort: TopicSortKey
+  }]
 }>()
 
 const page = ref(1)
 const size = ref(20)
 const keyword = ref('')
+const debouncedKeyword = useDebouncedValue(keyword)
 const selectedStatus = ref<TopicStatusFilter>('')
 const selectedSort = ref<TopicSortKey>('created-desc')
 const selectedNames = ref<string[]>([])
@@ -92,7 +103,7 @@ const statusOptions: FilterSelectOption[] = [
 const sortOptions: FilterSelectOption[] = [
   { label: '创建时间 ↓', value: 'created-desc' },
   { label: '创建时间 ↑', value: 'created-asc' },
-  { label: '优先级 ↓', value: 'priority-desc' },
+  { label: '优先级 ↑', value: 'priority-asc' },
   { label: '关联软件 ↓', value: 'apps-desc' },
   { label: '专题名称 ↑', value: 'title-asc' },
 ]
@@ -100,18 +111,26 @@ const sortOptions: FilterSelectOption[] = [
 const rows = computed(() => buildTopicRows(props.topics))
 const stats = computed(() => buildTopicStats(props.topics))
 const filteredRows = computed(() =>
-  sortTopicRows(
-    filterTopicRows(rows.value, {
-      keyword: keyword.value,
-      status: selectedStatus.value,
-    }),
-    selectedSort.value,
-  ),
+  props.remote
+    ? rows.value
+    : sortTopicRows(
+        filterTopicRows(rows.value, {
+          keyword: keyword.value,
+          status: selectedStatus.value,
+        }),
+        selectedSort.value,
+      ),
 )
 const pagedRows = computed(() => {
+  if (props.remote) {
+    return filteredRows.value
+  }
   const start = (page.value - 1) * size.value
   return filteredRows.value.slice(start, start + size.value)
 })
+const effectiveTotal = computed(() =>
+  props.remote ? props.total || 0 : filteredRows.value.length,
+)
 const allVisibleSelected = computed(
   () =>
     Boolean(pagedRows.value.length) &&
@@ -204,7 +223,7 @@ function setTopicAppNames(names: string[]) {
   draftModel.value.spec.items = names.filter(Boolean).map((name, index) => ({
     appName: name,
     reason: existingByName.get(name)?.reason || '',
-    priority: existingByName.get(name)?.priority ?? (names.length - index) * 10,
+    priority: existingByName.get(name)?.priority ?? (index + 1) * 10,
   }))
 }
 
@@ -236,7 +255,7 @@ function moveTopicItem(index: number, direction: -1 | 1) {
   items.splice(nextIndex, 0, item)
   draftModel.value.spec.items = items.map((current, currentIndex) => ({
     ...current,
-    priority: (items.length - currentIndex) * 10,
+    priority: (currentIndex + 1) * 10,
   }))
 }
 
@@ -274,15 +293,30 @@ function selectedTopicTitles() {
   return selectedNames.value.map((name) => titleByName.get(name) || name)
 }
 
-function statDelta(value: number) {
-  if (!value) {
-    return '0'
-  }
-  return `+${formatTopicNumber(value)}`
-}
-
-watch([keyword, selectedStatus, selectedSort, size], () => {
+watch([debouncedKeyword, selectedStatus, selectedSort, size], () => {
   page.value = 1
+})
+
+watch(
+  [page, size, debouncedKeyword, selectedStatus, selectedSort],
+  () => {
+    if (props.remote) {
+      emit('query-change', {
+        page: page.value,
+        size: size.value,
+        keyword: debouncedKeyword.value,
+        status: selectedStatus.value,
+        sort: selectedSort.value,
+      })
+    }
+  },
+)
+
+watch(effectiveTotal, (value) => {
+  const lastPage = Math.max(1, Math.ceil(value / size.value))
+  if (page.value > lastPage) {
+    page.value = lastPage
+  }
 })
 
 watch(
@@ -338,8 +372,8 @@ defineExpose({
       <ConsoleStatCard
         tone="mint"
         label="专题总数"
-        :value="formatTopicNumber(stats.total)"
-        :meta="`当前筛选 ${formatTopicNumber(filteredRows.length)}`"
+        :value="formatTopicNumber(remote ? effectiveTotal : stats.total)"
+        :meta="`当前页 ${formatTopicNumber(rows.length)}`"
       >
         <template #icon>
           <IconClipboardLine />
@@ -349,7 +383,7 @@ defineExpose({
         tone="green"
         label="已发布"
         :value="formatTopicNumber(stats.published)"
-        :meta="`公开展示 ${statDelta(stats.published)}`"
+        :meta="remote ? '当前页公开专题' : '公开展示专题'"
       >
         <template #icon>
           <IconCheckboxCircle />
@@ -359,7 +393,7 @@ defineExpose({
         tone="amber"
         label="草稿"
         :value="formatTopicNumber(stats.drafts)"
-        :meta="`待完善 ${formatTopicNumber(stats.drafts)}`"
+        :meta="remote ? '当前页未发布专题' : '待完善专题'"
       >
         <template #icon>
           <IconArrowDownCircleLine />
@@ -369,7 +403,7 @@ defineExpose({
         tone="blue"
         label="关联软件"
         :value="formatTopicNumber(stats.linkedApps)"
-        :meta="`精选 ${formatTopicNumber(stats.featured)}`"
+        :meta="remote ? `当前页精选 ${formatTopicNumber(stats.featured)}` : `精选 ${formatTopicNumber(stats.featured)}`"
       >
         <template #icon>
           <IconLink />
@@ -507,11 +541,11 @@ defineExpose({
 
         <template v-if="rows.length" #footer>
           <div class="topic-pagination">
-            <span>共 {{ formatTopicNumber(filteredRows.length) }} 条</span>
+            <span>共 {{ formatTopicNumber(effectiveTotal) }} 条</span>
             <VPagination
               v-model:page="page"
               v-model:size="size"
-              :total="filteredRows.length"
+              :total="effectiveTotal"
               :size-options="[10, 20, 50]"
             />
           </div>

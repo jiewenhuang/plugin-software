@@ -11,7 +11,6 @@ import {
   VButton,
   VEmpty,
   VLoading,
-  VModal,
   VPageHeader,
   VSpace,
   VStatusDot,
@@ -20,13 +19,12 @@ import {
 } from '@halo-dev/components'
 import { ExtensionsKit, RichTextEditor, VueEditor } from '@halo-dev/richtext-editor'
 import '@halo-dev/richtext-editor/dist/style.css'
-import { computed, onBeforeUnmount, onMounted, reactive, ref, shallowRef, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, shallowRef, watch } from 'vue'
 import { onBeforeRouteLeave } from 'vue-router'
+import { utils } from '@halo-dev/ui-shared'
 import {
   createApp,
-  createDownloadAsset,
   createTag,
-  createVersion,
   deleteDownloadAsset,
   deleteVersion,
   emptyTag,
@@ -37,15 +35,13 @@ import {
   getSoftwareOptions,
   getTag,
   listApps,
-  listCategories,
+  listAllCategories,
   listDownloadAssets,
   listRelatedPosts,
   listTags,
   listVersions,
   suggestAppByAi,
   updateApp,
-  updateDownloadAsset,
-  updateVersion,
   type DownloadAsset,
   type RelatedPost,
   type SoftwareAiTarget,
@@ -61,6 +57,8 @@ import ConsolePageScaffold from '@/components/console/ConsolePageScaffold.vue'
 import ConsoleTableCard from '@/components/console/ConsoleTableCard.vue'
 import ConsoleTokenSelector from '@/components/console/ConsoleTokenSelector.vue'
 import ConsoleFilterSelect from '@/components/ConsoleFilterSelect.vue'
+import DownloadAssetModal from '@/components/software/DownloadAssetModal.vue'
+import SoftwareVersionModal from '@/components/software/SoftwareVersionModal.vue'
 import {
   defaultSoftwareOptions,
   ensureCurrentOption as ensureConfiguredOption,
@@ -74,10 +72,19 @@ import {
   buildSoftwareEditorQuery,
   createSoftwareEditorSnapshot,
   normalizeSoftwareEditorTab,
+  stableAsciiSlug,
   type SoftwareEditorTab as EditorTab,
 } from './software-editor-console'
 
 type SelectOption = { label: string; value: string; disabled?: boolean }
+type VersionModalHandle = {
+  openCreate: () => void
+  openEdit: (version: SoftwareVersion) => void
+}
+type DownloadAssetModalHandle = {
+  openCreate: () => void
+  openEdit: (asset: DownloadAsset) => void | Promise<void>
+}
 
 const searchParams = new URLSearchParams(window.location.search)
 const name = ref(searchParams.get('name') || '')
@@ -94,38 +101,18 @@ const loading = ref(false)
 const saving = ref(false)
 const suggestingApp = ref(false)
 const aiAvailable = ref(false)
-const versionSaving = ref(false)
-const assetSaving = ref(false)
 const tagCreating = ref(false)
 const tagSearching = ref(false)
 const appSearching = ref(false)
 const postSearching = ref(false)
 const resourceLoading = ref(false)
-const versionModalVisible = ref(false)
-const assetModalVisible = ref(false)
 const descriptionEditor = shallowRef<VueEditor>()
 const savedSnapshot = ref('')
-const versionDraft = reactive({
-  name: '',
-  version: '',
-  build: '',
-  releaseDate: '',
-  minOsVersion: '',
-  sizeBytes: '',
-  status: 'released',
-  changelog: '',
-})
-const assetDraft = reactive({
-  name: '',
-  versionName: '',
-  title: '',
-  url: '',
-  type: 'dmg',
-  provider: 'external',
-  region: '',
-  priority: 0,
-  enabled: true,
-})
+const versionModalRef = ref<VersionModalHandle>()
+const downloadAssetModalRef = ref<DownloadAssetModalHandle>()
+const canManageDownloadSecrets = computed(() =>
+  utils.permission.has(['plugin:software:secret']),
+)
 
 const tokenSearchSize = 20
 let tagSearchSeq = 0
@@ -167,9 +154,11 @@ const localeModel = computed({
   },
 })
 const platformModel = computed({
-  get: () => splitOptionText(app.value.spec.platform),
+  get: () => splitOptionText(app.value.spec.platforms ?? app.value.spec.platform),
   set: (values: string[]) => {
-    app.value.spec.platform = uniqueValues(values).join(', ') || undefined
+    const normalized = uniqueValues(values)
+    app.value.spec.platforms = normalized
+    app.value.spec.platform = normalized.join(', ') || undefined
   },
 })
 const architectureModel = computed({
@@ -198,31 +187,11 @@ const categorySelectOptions = computed<SelectOption[]>(() => [
     disabled: !category.metadata?.name,
   })),
 ])
-const versionSelectOptions = computed<SelectOption[]>(() => [
-  { label: '选择版本', value: '', disabled: true },
-  ...versions.value.map((version) => ({
-    label: version.spec.version,
-    value: version.metadata?.name || '',
-    disabled: !version.metadata?.name,
-  })),
-])
 const platformOptions = computed(() =>
   ensureCurrentTokenOptions(softwareOptions.value.platforms, platformModel.value),
 )
 const architectureOptions = computed(() =>
   ensureCurrentTokenOptions(softwareOptions.value.architectures, architectureModel.value),
-)
-const versionStatusOptions = computed(() =>
-  ensureConfiguredOption(toFilterOptions(softwareOptions.value.versionStatuses), versionDraft.status),
-)
-const assetTypeOptions = computed(() =>
-  ensureConfiguredOption(toFilterOptions(softwareOptions.value.downloadTypes), assetDraft.type),
-)
-const assetProviderOptions = computed(() =>
-  ensureConfiguredOption(
-    toFilterOptions(softwareOptions.value.downloadProviders),
-    assetDraft.provider,
-  ),
 )
 const releaseChannelOptions = computed(() =>
   ensureConfiguredOption(
@@ -319,10 +288,6 @@ function assetProviderText(provider?: string) {
   return configuredOptionLabel(softwareOptions.value.downloadProviders, provider, 'external')
 }
 
-function firstConfiguredValue(items: SoftwareOptionItem[], fallback: string) {
-  return items.find((item) => item.value)?.value || fallback
-}
-
 function mergeByMetadataName<T extends { metadata?: { name?: string } }>(
   current: T[],
   incoming: T[],
@@ -376,7 +341,7 @@ function replaceEditorUrl() {
   const nextUrl = `${window.location.pathname}${buildSoftwareEditorQuery(name.value, activeTab.value)}`
   const currentUrl = `${window.location.pathname}${window.location.search}`
   if (nextUrl !== currentUrl) {
-    window.history.replaceState(null, '', nextUrl)
+    window.history.replaceState(window.history.state, '', nextUrl)
   }
 }
 
@@ -441,15 +406,7 @@ function setRelatedPosts(values: string[]) {
 }
 
 function slugify(value: string) {
-  return (
-    value
-      .trim()
-      .toLowerCase()
-      .normalize('NFKD')
-      .replace(/[\u0300-\u036f]/g, '')
-      .replace(/[^a-z0-9\u4e00-\u9fa5]+/g, '-')
-      .replace(/^-+|-+$/g, '') || `tag-${Date.now()}`
-  )
+  return stableAsciiSlug(value)
 }
 
 function uniqueTagSlug(keyword: string) {
@@ -665,41 +622,12 @@ function setupDescriptionEditor() {
   })
 }
 
-function resetVersionDraft() {
-  versionDraft.name = ''
-  versionDraft.version = ''
-  versionDraft.build = ''
-  versionDraft.releaseDate = ''
-  versionDraft.minOsVersion = ''
-  versionDraft.sizeBytes = ''
-  versionDraft.status = firstConfiguredValue(softwareOptions.value.versionStatuses, 'released')
-  versionDraft.changelog = ''
-}
-
-function resetAssetDraft() {
-  assetDraft.name = ''
-  assetDraft.versionName = versions.value[0]?.metadata?.name || ''
-  assetDraft.title = ''
-  assetDraft.url = ''
-  assetDraft.type = firstConfiguredValue(softwareOptions.value.downloadTypes, 'dmg')
-  assetDraft.provider = firstConfiguredValue(softwareOptions.value.downloadProviders, 'external')
-  assetDraft.region = ''
-  assetDraft.priority = 0
-  assetDraft.enabled = true
-}
-
 function openVersionModal() {
   if (!canManageChildren.value) {
     Toast.warning('请先保存软件基础信息')
     return
   }
-  resetVersionDraft()
-  versionModalVisible.value = true
-}
-
-function closeVersionModal() {
-  versionModalVisible.value = false
-  resetVersionDraft()
+  versionModalRef.value?.openCreate()
 }
 
 function openAssetModal() {
@@ -712,13 +640,11 @@ function openAssetModal() {
     activeTab.value = 'versions'
     return
   }
-  resetAssetDraft()
-  assetModalVisible.value = true
-}
-
-function closeAssetModal() {
-  assetModalVisible.value = false
-  resetAssetDraft()
+  if (!canManageDownloadSecrets.value) {
+    Toast.warning('需要“软件敏感下载配置”权限才能新建下载源')
+    return
+  }
+  downloadAssetModalRef.value?.openCreate()
 }
 
 async function fetchResourceOptions() {
@@ -726,7 +652,7 @@ async function fetchResourceOptions() {
   try {
     const [optionResult, categoryResult, aiCapabilities] = await Promise.all([
       getSoftwareOptions().catch(() => defaultSoftwareOptions),
-      listCategories({ page: 1, size: 200 }),
+      listAllCategories(),
       getSoftwareAiCapabilities().catch(() => ({ available: false })),
     ])
     softwareOptions.value = normalizeSoftwareOptions(optionResult)
@@ -746,8 +672,6 @@ async function fetchEditorData() {
     markSavedSnapshot()
     versions.value = []
     downloadAssets.value = []
-    resetVersionDraft()
-    resetAssetDraft()
     return
   }
   loading.value = true
@@ -762,9 +686,6 @@ async function fetchEditorData() {
     ])
     versions.value = versionResult.items
     downloadAssets.value = assetResult.items
-    if (!assetDraft.versionName) {
-      assetDraft.versionName = versions.value[0]?.metadata?.name || ''
-    }
     markSavedSnapshot()
   } finally {
     loading.value = false
@@ -817,53 +738,9 @@ async function generateAppSuggestion(target: SoftwareAiTarget) {
   }
 }
 
-async function saveVersion() {
-  if (!appName.value) {
-    Toast.warning('请先保存软件基础信息')
-    return
-  }
-  if (!versionDraft.version) {
-    Toast.warning('版本号必填')
-    return
-  }
-  const payload: SoftwareVersion = {
-    spec: {
-      appName: appName.value,
-      version: versionDraft.version,
-      build: versionDraft.build || undefined,
-      releaseDate: versionDraft.releaseDate || undefined,
-      minOsVersion: versionDraft.minOsVersion || undefined,
-      sizeBytes: versionDraft.sizeBytes ? Number(versionDraft.sizeBytes) : undefined,
-      changelog: versionDraft.changelog || undefined,
-      status: versionDraft.status || undefined,
-    },
-  }
-  versionSaving.value = true
-  try {
-    if (versionDraft.name) {
-      await updateVersion(versionDraft.name, payload)
-    } else {
-      await createVersion(payload)
-    }
-    Toast.success('版本已保存')
-    closeVersionModal()
-    await fetchEditorData()
-  } finally {
-    versionSaving.value = false
-  }
-}
-
 function editVersion(version: SoftwareVersion) {
   activeTab.value = 'versions'
-  versionDraft.name = version.metadata?.name || ''
-  versionDraft.version = version.spec.version
-  versionDraft.build = version.spec.build || ''
-  versionDraft.releaseDate = version.spec.releaseDate || ''
-  versionDraft.minOsVersion = version.spec.minOsVersion || ''
-  versionDraft.sizeBytes = version.spec.sizeBytes ? String(version.spec.sizeBytes) : ''
-  versionDraft.status = version.spec.status || 'released'
-  versionDraft.changelog = version.spec.changelog || ''
-  versionModalVisible.value = true
+  versionModalRef.value?.openEdit(version)
 }
 
 function confirmDeleteVersion(version: SoftwareVersion) {
@@ -883,59 +760,9 @@ function confirmDeleteVersion(version: SoftwareVersion) {
   })
 }
 
-async function saveAsset() {
-  if (!appName.value) {
-    Toast.warning('请先保存软件基础信息')
-    return
-  }
-  if (!assetDraft.versionName) {
-    Toast.warning('请选择关联版本')
-    return
-  }
-  if (!assetDraft.title || !assetDraft.url) {
-    Toast.warning('资源名称和下载 URL 必填')
-    return
-  }
-  const payload: DownloadAsset = {
-    spec: {
-      appName: appName.value,
-      versionName: assetDraft.versionName,
-      title: assetDraft.title,
-      url: assetDraft.url,
-      type: assetDraft.type || undefined,
-      provider: assetDraft.provider || undefined,
-      region: assetDraft.region || undefined,
-      enabled: assetDraft.enabled,
-      priority: assetDraft.priority || 0,
-    },
-  }
-  assetSaving.value = true
-  try {
-    if (assetDraft.name) {
-      await updateDownloadAsset(assetDraft.name, payload)
-    } else {
-      await createDownloadAsset(payload)
-    }
-    Toast.success('下载资源已保存')
-    closeAssetModal()
-    await fetchEditorData()
-  } finally {
-    assetSaving.value = false
-  }
-}
-
 function editAsset(asset: DownloadAsset) {
   activeTab.value = 'downloads'
-  assetDraft.name = asset.metadata?.name || ''
-  assetDraft.versionName = asset.spec.versionName
-  assetDraft.title = asset.spec.title
-  assetDraft.url = asset.spec.url || ''
-  assetDraft.type = asset.spec.type || ''
-  assetDraft.provider = asset.spec.provider || ''
-  assetDraft.region = asset.spec.region || ''
-  assetDraft.priority = asset.spec.priority || 0
-  assetDraft.enabled = asset.spec.enabled ?? true
-  assetModalVisible.value = true
+  void downloadAssetModalRef.value?.openEdit(asset)
 }
 
 function confirmDeleteAsset(asset: DownloadAsset) {
@@ -1648,187 +1475,20 @@ onBeforeRouteLeave(() => confirmDiscardChanges())
     </div>
   </ConsolePageScaffold>
 
-  <VModal
-    v-if="versionModalVisible"
-    :title="versionDraft.name ? '编辑版本' : '添加版本'"
-    :width="760"
-    :body-class="['software-editor-modal-body']"
-    @close="closeVersionModal"
-  >
-    <div class="modal-form">
-      <div class="form-grid">
-        <label>
-          <span>版本号 *</span>
-          <input
-            v-model.trim="versionDraft.version"
-            class="field"
-            name="software-version"
-            placeholder="1.0.0"
-            autocomplete="off"
-          />
-        </label>
-        <label>
-          <span>构建号</span>
-          <input
-            v-model.trim="versionDraft.build"
-            class="field"
-            name="software-version-build"
-            placeholder="build 123"
-            autocomplete="off"
-          />
-        </label>
-        <label>
-          <span>发布日期</span>
-          <input
-            v-model="versionDraft.releaseDate"
-            class="field"
-            name="software-version-release-date"
-            type="date"
-          />
-        </label>
-        <label>
-          <span>最低系统</span>
-          <input
-            v-model.trim="versionDraft.minOsVersion"
-            class="field"
-            name="software-version-min-os"
-            placeholder="macOS 13.0"
-            autocomplete="off"
-          />
-        </label>
-        <label>
-          <span>大小 bytes</span>
-          <input
-            v-model.trim="versionDraft.sizeBytes"
-            class="field"
-            name="software-version-size-bytes"
-            placeholder="104857600"
-            type="number"
-            min="0"
-            inputmode="numeric"
-          />
-        </label>
-        <label>
-          <span>状态</span>
-          <ConsoleFilterSelect
-            v-model="versionDraft.status"
-            class="editor-select"
-            :options="versionStatusOptions"
-            aria-label="选择版本状态"
-          />
-        </label>
-      </div>
-      <label class="block-field">
-        <span>更新说明</span>
-        <textarea v-model.trim="versionDraft.changelog" class="textarea" rows="5" />
-      </label>
-    </div>
-    <template #footer>
-      <VSpace>
-        <VButton type="secondary" :loading="versionSaving" @click="saveVersion">
-          {{ versionDraft.name ? '保存版本' : '添加版本' }}
-        </VButton>
-        <VButton @click="closeVersionModal">取消</VButton>
-      </VSpace>
-    </template>
-  </VModal>
-
-  <VModal
-    v-if="assetModalVisible"
-    :title="assetDraft.name ? '编辑下载源' : '添加下载源'"
-    :width="820"
-    :body-class="['software-editor-modal-body']"
-    @close="closeAssetModal"
-  >
-    <div class="modal-form">
-      <div class="form-grid">
-        <label>
-          <span>关联版本 *</span>
-          <ConsoleFilterSelect
-            v-model="assetDraft.versionName"
-            class="editor-select"
-            :options="versionSelectOptions"
-            aria-label="选择关联版本"
-          />
-        </label>
-        <label>
-          <span>资源名称 *</span>
-          <input
-            v-model.trim="assetDraft.title"
-            class="field"
-            name="download-asset-title"
-            placeholder="安装包 / 网盘链接"
-            autocomplete="off"
-          />
-        </label>
-        <label class="full-span">
-          <span>下载 URL *</span>
-          <input
-            v-model.trim="assetDraft.url"
-            class="field"
-            name="download-asset-url"
-            placeholder="https://..."
-            type="url"
-            inputmode="url"
-            autocomplete="url"
-          />
-        </label>
-        <label>
-          <span>类型</span>
-          <ConsoleFilterSelect
-            v-model="assetDraft.type"
-            class="editor-select"
-            :options="assetTypeOptions"
-            aria-label="选择下载类型"
-          />
-        </label>
-        <label>
-          <span>Provider</span>
-          <ConsoleFilterSelect
-            v-model="assetDraft.provider"
-            class="editor-select"
-            :options="assetProviderOptions"
-            aria-label="选择下载源 Provider"
-          />
-        </label>
-        <label>
-          <span>Region</span>
-          <input
-            v-model.trim="assetDraft.region"
-            class="field"
-            name="download-asset-region"
-            placeholder="cn / global"
-            autocomplete="off"
-          />
-        </label>
-        <label>
-          <span>优先级</span>
-          <input
-            v-model.number="assetDraft.priority"
-            class="field"
-            name="download-asset-priority"
-            type="number"
-            inputmode="numeric"
-          />
-        </label>
-      </div>
-      <label class="switch-card modal-switch-card" :class="{ active: assetDraft.enabled }">
-        <VSwitch v-model="assetDraft.enabled" />
-        <span>
-          <strong>启用下载源</strong>
-          <small>停用后不会作为公开下载资源返回</small>
-        </span>
-      </label>
-    </div>
-    <template #footer>
-      <VSpace>
-        <VButton type="secondary" :loading="assetSaving" @click="saveAsset">
-          {{ assetDraft.name ? '保存下载源' : '添加下载源' }}
-        </VButton>
-        <VButton @click="closeAssetModal">取消</VButton>
-      </VSpace>
-    </template>
-  </VModal>
+  <SoftwareVersionModal
+    ref="versionModalRef"
+    :app-name="appName"
+    :software-options="softwareOptions"
+    @saved="fetchEditorData"
+  />
+  <DownloadAssetModal
+    ref="downloadAssetModalRef"
+    :app-name="appName"
+    :versions="versions"
+    :software-options="softwareOptions"
+    :can-manage-secrets="canManageDownloadSecrets"
+    @saved="fetchEditorData"
+  />
 </template>
 
 <style scoped lang="scss">
@@ -2195,37 +1855,6 @@ onBeforeRouteLeave(() => confirmDiscardChanges())
   font-size: 12px;
 }
 
-.modal-form {
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-}
-
-:global(.software-editor-modal-body) {
-  max-height: calc(100vh - 220px);
-  overflow-y: auto;
-  overscroll-behavior: contain;
-  padding-right: 18px;
-}
-
-:global(.software-editor-modal-body::-webkit-scrollbar) {
-  width: 8px;
-}
-
-:global(.software-editor-modal-body::-webkit-scrollbar-track) {
-  background: transparent;
-}
-
-:global(.software-editor-modal-body::-webkit-scrollbar-thumb) {
-  border: 2px solid #fff;
-  border-radius: 999px;
-  background: #cbd5e1;
-}
-
-.full-span {
-  grid-column: 1 / -1;
-}
-
 .switch-card-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -2270,10 +1899,6 @@ onBeforeRouteLeave(() => confirmDiscardChanges())
   margin-top: 2px;
   color: #64748b;
   font-size: 12px;
-}
-
-.modal-switch-card {
-  margin-top: 2px;
 }
 
 .editor-select {

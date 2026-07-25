@@ -86,21 +86,21 @@ describe('category console helpers', () => {
   it('builds a parent-child tree with aggregate counts', () => {
     expect(buildCategoryTree(categories)).toEqual([
       expect.objectContaining({
-        name: 'os',
-        label: '操作系统',
-        count: 131,
-        depth: 0,
-        children: [
-          expect.objectContaining({ name: 'windows', label: 'Windows', count: 2, depth: 1 }),
-          expect.objectContaining({ name: 'macos', label: 'macOS', count: 1, depth: 1 }),
-        ],
-      }),
-      expect.objectContaining({
         name: 'uncategorized',
         label: '未分类',
         count: 12,
         depth: 0,
         children: [],
+      }),
+      expect.objectContaining({
+        name: 'os',
+        label: '操作系统',
+        count: 131,
+        depth: 0,
+        children: [
+          expect.objectContaining({ name: 'macos', label: 'macOS', count: 1, depth: 1 }),
+          expect.objectContaining({ name: 'windows', label: 'Windows', count: 2, depth: 1 }),
+        ],
       }),
     ])
   })
@@ -127,6 +127,12 @@ describe('category console helpers', () => {
       'windows',
       'macos',
       'uncategorized',
+    ])
+    expect(sortCategoryRows(rows, 'priority-asc').map((row) => row.name)).toEqual([
+      'uncategorized',
+      'macos',
+      'windows',
+      'os',
     ])
   })
 })

@@ -23,6 +23,7 @@ public class SoftwareApp extends AbstractExtension {
     private Status status;
 
     @Data
+    @Schema(name = "SoftwareAppSpec")
     public static class Spec {
 
         @Schema(requiredMode = REQUIRED, description = "Public URL slug, independent from metadata.name.")
@@ -53,6 +54,12 @@ public class SoftwareApp extends AbstractExtension {
 
         private String platform;
 
+        /**
+         * Normalized platform values. The legacy {@link #platform} field is retained for reading
+         * data written by plugin versions before 1.1.0.
+         */
+        private List<String> platforms;
+
         private String licenseType;
 
         private String releaseChannel;
@@ -79,6 +86,7 @@ public class SoftwareApp extends AbstractExtension {
     }
 
     @Data
+    @Schema(name = "SoftwareAppSeo")
     public static class Seo {
 
         private String title;
@@ -89,6 +97,7 @@ public class SoftwareApp extends AbstractExtension {
     }
 
     @Data
+    @Schema(name = "SoftwareAppStatus")
     public static class Status {
 
         private String latestVersionName;
@@ -108,5 +117,7 @@ public class SoftwareApp extends AbstractExtension {
         private Long commentCount;
 
         private String health;
+
+        private Long observedVersion;
     }
 }

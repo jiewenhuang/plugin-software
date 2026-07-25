@@ -1,18 +1,35 @@
 import { axiosInstance, consoleApiClient, coreApiClient } from '@halo-dev/api-client'
+import type {
+  DownloadAssetConsoleSpec as GeneratedDownloadAssetConsoleSpec,
+  DownloadAssetSecretVo as GeneratedDownloadAssetSecret,
+  DownloadAssetStatus as GeneratedDownloadAssetStatus,
+  Metadata as GeneratedMetadata,
+  SoftwareAppSeo as GeneratedSoftwareSeo,
+  SoftwareAppSpec as GeneratedSoftwareAppSpec,
+  SoftwareAppStatus as GeneratedSoftwareAppStatus,
+  SoftwareCategorySpec as GeneratedSoftwareCategorySpec,
+  SoftwareCategoryStatus as GeneratedSoftwareCategoryStatus,
+  SoftwareTagSpec as GeneratedSoftwareTagSpec,
+  SoftwareTagStatus as GeneratedSoftwareTagStatus,
+  SoftwareTopicItem as GeneratedSoftwareTopicItem,
+  SoftwareTopicSpec as GeneratedSoftwareTopicSpec,
+  SoftwareTopicStatus as GeneratedSoftwareTopicStatus,
+  SoftwareVersionSpec as GeneratedSoftwareVersionSpec,
+  SoftwareVersionStatus as GeneratedSoftwareVersionStatus,
+} from './generated/models'
 
-export interface ExtensionMetadata {
-  name?: string
-  generateName?: string
+// Generated models are the server contract. Console drafts intentionally relax only metadata,
+// because resources do not have a server-assigned name/version before they are persisted.
+export type ExtensionMetadata = Omit<
+  Partial<GeneratedMetadata>,
+  'creationTimestamp' | 'deletionTimestamp' | 'version'
+> & {
   creationTimestamp?: string
   deletionTimestamp?: string
   version?: number
 }
 
-export interface SoftwareSeo {
-  title?: string
-  description?: string
-  keywords?: string[]
-}
+export type SoftwareSeo = GeneratedSoftwareSeo
 
 export interface SoftwareAppAiSuggestion {
   summary?: string
@@ -27,45 +44,9 @@ export interface SoftwareAiCapabilities {
   available: boolean
 }
 
-export interface SoftwareAppSpec {
-  slug: string
-  displayName: string
-  subtitle?: string
-  vendor?: string
-  officialWebsite?: string
-  icon?: string
-  cover?: string
-  screenshots?: string[]
-  summary?: string
-  description?: string
-  categoryName?: string
-  tagNames?: string[]
-  platform?: string
-  licenseType?: string
-  releaseChannel?: string
-  locale?: string
-  architectures?: string[]
-  editorRating?: number
-  featured?: boolean
-  recommended?: boolean
-  published?: boolean
-  publishedAt?: string
-  seo?: SoftwareSeo
-  relatedAppNames?: string[]
-  relatedPostNames?: string[]
-}
+export type SoftwareAppSpec = GeneratedSoftwareAppSpec
 
-export interface SoftwareAppStatus {
-  latestVersionName?: string
-  latestVersion?: string
-  latestReleaseDate?: string
-  minOsVersion?: string
-  sizeBytes?: number
-  downloadCount?: number
-  likeCount?: number
-  commentCount?: number
-  health?: string
-}
+export type SoftwareAppStatus = GeneratedSoftwareAppStatus
 
 export interface SoftwareApp {
   apiVersion?: string
@@ -77,109 +58,41 @@ export interface SoftwareApp {
 
 export interface SoftwareVersion {
   metadata?: ExtensionMetadata
-  spec: {
-    appName: string
-    version: string
-    build?: string
-    releaseDate?: string
-    sizeBytes?: number
-    minOsVersion?: string
-    maxOsVersion?: string
-    architectures?: string[]
-    locale?: string
-    changelog?: string
-    installGuide?: string
-    installWarnings?: string[]
-    status?: string
-  }
-  status?: {
-    assetCount?: number
-    downloadCount?: number
-    primaryAssetName?: string
-  }
+  spec: GeneratedSoftwareVersionSpec
+  status?: GeneratedSoftwareVersionStatus
 }
+
+// Console responses and secret responses are separate server contracts. The editor combines them
+// only after the dedicated secret endpoint succeeds, keeping the authorization boundary explicit.
+export type DownloadAssetSpec = GeneratedDownloadAssetConsoleSpec &
+  Omit<GeneratedDownloadAssetSecret, 'name'>
 
 export interface DownloadAsset {
   metadata?: ExtensionMetadata
-  spec: {
-    appName: string
-    versionName: string
-    title: string
-    type?: string
-    provider?: string
-    url?: string
-    storageKey?: string
-    extractionCode?: string
-    passwordSecretName?: string
-    requiresLogin?: boolean
-    requiresCaptcha?: boolean
-    region?: string
-    priority?: number
-    enabled?: boolean
-  }
-  status?: {
-    health?: string
-    lastCheckedAt?: string
-    downloadCount?: number
-  }
+  spec: DownloadAssetSpec
+  status?: GeneratedDownloadAssetStatus
 }
+
+export type DownloadAssetSecret = GeneratedDownloadAssetSecret
 
 export interface SoftwareCategory {
   metadata?: ExtensionMetadata
-  spec: {
-    slug: string
-    displayName: string
-    parentName?: string
-    description?: string
-    icon?: string
-    priority?: number
-    visible?: boolean
-    seo?: SoftwareSeo
-  }
-  status?: {
-    appCount?: number
-  }
+  spec: GeneratedSoftwareCategorySpec
+  status?: GeneratedSoftwareCategoryStatus
 }
 
 export interface SoftwareTag {
   metadata?: ExtensionMetadata
-  spec: {
-    slug: string
-    displayName: string
-    description?: string
-    color?: string
-    priority?: number
-    visible?: boolean
-    seo?: SoftwareSeo
-  }
-  status?: {
-    appCount?: number
-  }
+  spec: GeneratedSoftwareTagSpec
+  status?: GeneratedSoftwareTagStatus
 }
 
-export interface SoftwareTopicItem {
-  appName: string
-  reason?: string
-  priority?: number
-}
+export type SoftwareTopicItem = GeneratedSoftwareTopicItem
 
 export interface SoftwareTopic {
   metadata?: ExtensionMetadata
-  spec: {
-    slug: string
-    title: string
-    subtitle?: string
-    description?: string
-    cover?: string
-    items?: SoftwareTopicItem[]
-    featured?: boolean
-    published?: boolean
-    priority?: number
-    seo?: SoftwareSeo
-  }
-  status?: {
-    appCount?: number
-  }
+  spec: GeneratedSoftwareTopicSpec
+  status?: GeneratedSoftwareTopicStatus
 }
 
 export interface RelatedPost {
@@ -216,6 +129,14 @@ export interface SoftwareConsoleStats {
   drafts: number
   downloads: number
   platforms: string[]
+}
+
+export interface DownloadAssetStats {
+  total: number
+  enabled: number
+  disabled: number
+  protectedCount: number
+  downloads: number
 }
 
 export interface ListResult<T> {
@@ -292,12 +213,14 @@ export function getApp(name: string) {
 }
 
 export function createApp(app: SoftwareApp) {
-  return axiosInstance.post<SoftwareApp>(`${base}/apps`, app).then((response) => response.data)
+  return axiosInstance
+    .post<SoftwareApp>(`${base}/apps`, { spec: app.spec })
+    .then((response) => response.data)
 }
 
 export function updateApp(name: string, app: SoftwareApp) {
   return axiosInstance
-    .put<SoftwareApp>(`${base}/apps/${name}`, app)
+    .put<SoftwareApp>(`${base}/apps/${name}`, { spec: app.spec })
     .then((response) => response.data)
 }
 
@@ -322,22 +245,18 @@ export function getSoftwareAiCapabilities() {
 }
 
 export function listVersions(appName: string) {
-  return axiosInstance
-    .get<ListResult<SoftwareVersion>>(`${base}/versions`, {
-      params: { page: 1, size: 1000, appName },
-    })
-    .then((response) => response.data)
+  return listAllPages<SoftwareVersion>(`${base}/versions`, { appName })
 }
 
 export function createVersion(version: SoftwareVersion) {
   return axiosInstance
-    .post<SoftwareVersion>(`${base}/versions`, version)
+    .post<SoftwareVersion>(`${base}/versions`, { spec: version.spec })
     .then((response) => response.data)
 }
 
 export function updateVersion(name: string, version: SoftwareVersion) {
   return axiosInstance
-    .put<SoftwareVersion>(`${base}/versions/${name}`, version)
+    .put<SoftwareVersion>(`${base}/versions/${name}`, { spec: version.spec })
     .then((response) => response.data)
 }
 
@@ -347,42 +266,104 @@ export function deleteVersion(name: string) {
     .then((response) => response.data)
 }
 
-export function listDownloadAssets(
-  appNameOrParams:
-    | string
-    | {
-        page?: number
-        size?: number
-        keyword?: string
-        appName?: string
-        versionName?: string
-      },
-) {
-  const params =
-    typeof appNameOrParams === 'string'
-      ? { page: 1, size: 1000, appName: appNameOrParams }
-      : {
-          page: 1,
-          size: 1000,
-          ...appNameOrParams,
-        }
+export interface DownloadAssetListParams {
+  page?: number
+  size?: number
+  keyword?: string
+  appName?: string
+  versionName?: string
+  type?: string
+  enabled?: boolean
+  protection?: 'protected'
+  sort?: string
+}
 
+export function listDownloadAssets(appName: string): Promise<ListResult<DownloadAsset>>
+export function listDownloadAssets(
+  params: DownloadAssetListParams,
+): Promise<ListResult<DownloadAsset>>
+export function listDownloadAssets(appNameOrParams: string | DownloadAssetListParams) {
+  if (typeof appNameOrParams === 'string') {
+    return listAllPages<DownloadAsset>(`${base}/download-assets`, {
+      appName: appNameOrParams,
+    })
+  }
   return axiosInstance
-    .get<ListResult<DownloadAsset>>(`${base}/download-assets`, {
-      params,
+    .get<ListResult<DownloadAsset>>(`${base}/download-assets`, { params: appNameOrParams })
+    .then((response) => response.data)
+}
+
+export function getDownloadAssetStats() {
+  return axiosInstance
+    .get<DownloadAssetStats>(`${base}/download-assets/stats`)
+    .then((response) => response.data)
+}
+
+export async function createDownloadAsset(asset: DownloadAsset) {
+  const desiredEnabled = asset.spec.enabled === true
+  const response = await axiosInstance.post<DownloadAsset>(`${base}/download-assets`, {
+    spec: publicDownloadSpec(asset.spec, false),
+  })
+  const created = response.data
+  const name = created.metadata?.name
+  if (!name) {
+    return created
+  }
+  if (hasExplicitDownloadSecret(asset.spec)) {
+    await updateDownloadAssetSecret(name, asset.spec)
+  }
+  if (!desiredEnabled) {
+    return created
+  }
+  return axiosInstance
+    .put<DownloadAsset>(`${base}/download-assets/${name}`, {
+      spec: publicDownloadSpec({ ...asset.spec, enabled: true }, true),
+    })
+    .then((result) => result.data)
+}
+
+export async function updateDownloadAsset(name: string, asset: DownloadAsset) {
+  // Disable before clearing the last usable target. This avoids a transient enabled asset with
+  // neither URL nor storage key, which the server correctly rejects.
+  if (asset.spec.enabled === false) {
+    const response = await axiosInstance.put<DownloadAsset>(`${base}/download-assets/${name}`, {
+      spec: publicDownloadSpec(asset.spec, false),
+    })
+    if (hasExplicitDownloadSecret(asset.spec)) {
+      await updateDownloadAssetSecret(name, asset.spec)
+    }
+    return response.data
+  }
+  if (hasExplicitDownloadSecret(asset.spec)) {
+    await updateDownloadAssetSecret(name, asset.spec)
+  }
+  return axiosInstance
+    .put<DownloadAsset>(`${base}/download-assets/${name}`, {
+      spec: publicDownloadSpec(asset.spec, asset.spec.enabled),
     })
     .then((response) => response.data)
 }
 
-export function createDownloadAsset(asset: DownloadAsset) {
+export function getDownloadAssetSecret(name: string) {
   return axiosInstance
-    .post<DownloadAsset>(`${base}/download-assets`, asset)
+    .get<DownloadAssetSecret>(`${base}/download-assets/${name}/secrets`)
     .then((response) => response.data)
 }
 
-export function updateDownloadAsset(name: string, asset: DownloadAsset) {
+export function updateDownloadAssetSecret(
+  name: string,
+  secret: Pick<
+    DownloadAsset['spec'],
+    'url' | 'storageKey' | 'extractionCode' | 'passwordSecretName'
+  >,
+) {
   return axiosInstance
-    .put<DownloadAsset>(`${base}/download-assets/${name}`, asset)
+    .put<DownloadAssetSecret>(`${base}/download-assets/${name}/secrets`, {
+      url: secret.url,
+      storageKey: secret.storageKey,
+      extractionCode: secret.extractionCode,
+      passwordSecretName: secret.passwordSecretName,
+    })
     .then((response) => response.data)
 }
 
@@ -404,21 +385,32 @@ export function emptyCategory(): SoftwareCategory {
   }
 }
 
-export function listCategories(params: { page: number; size: number; keyword?: string }) {
+export function listCategories(params: {
+  page: number
+  size: number
+  keyword?: string
+  visible?: boolean
+  parentName?: string
+  sort?: string
+}) {
   return axiosInstance
     .get<ListResult<SoftwareCategory>>(`${base}/categories`, { params })
     .then((response) => response.data)
 }
 
+export function listAllCategories() {
+  return listAllPages<SoftwareCategory>(`${base}/categories`, {}, 100)
+}
+
 export function createCategory(category: SoftwareCategory) {
   return axiosInstance
-    .post<SoftwareCategory>(`${base}/categories`, category)
+    .post<SoftwareCategory>(`${base}/categories`, { spec: category.spec })
     .then((response) => response.data)
 }
 
 export function updateCategory(name: string, category: SoftwareCategory) {
   return axiosInstance
-    .put<SoftwareCategory>(`${base}/categories/${name}`, category)
+    .put<SoftwareCategory>(`${base}/categories/${name}`, { spec: category.spec })
     .then((response) => response.data)
 }
 
@@ -440,7 +432,14 @@ export function emptyTag(): SoftwareTag {
   }
 }
 
-export function listTags(params: { page: number; size: number; keyword?: string }) {
+export function listTags(params: {
+  page: number
+  size: number
+  keyword?: string
+  visible?: boolean
+  usage?: 'used' | 'unused'
+  sort?: string
+}) {
   return axiosInstance
     .get<ListResult<SoftwareTag>>(`${base}/tags`, { params })
     .then((response) => response.data)
@@ -451,12 +450,14 @@ export function getTag(name: string) {
 }
 
 export function createTag(tag: SoftwareTag) {
-  return axiosInstance.post<SoftwareTag>(`${base}/tags`, tag).then((response) => response.data)
+  return axiosInstance
+    .post<SoftwareTag>(`${base}/tags`, { spec: tag.spec })
+    .then((response) => response.data)
 }
 
 export function updateTag(name: string, tag: SoftwareTag) {
   return axiosInstance
-    .put<SoftwareTag>(`${base}/tags/${name}`, tag)
+    .put<SoftwareTag>(`${base}/tags/${name}`, { spec: tag.spec })
     .then((response) => response.data)
 }
 
@@ -478,7 +479,14 @@ export function emptyTopic(): SoftwareTopic {
   }
 }
 
-export function listTopics(params: { page: number; size: number; keyword?: string }) {
+export function listTopics(params: {
+  page: number
+  size: number
+  keyword?: string
+  published?: boolean
+  featured?: boolean
+  sort?: string
+}) {
   return axiosInstance
     .get<ListResult<SoftwareTopic>>(`${base}/topics`, { params })
     .then((response) => response.data)
@@ -486,13 +494,13 @@ export function listTopics(params: { page: number; size: number; keyword?: strin
 
 export function createTopic(topic: SoftwareTopic) {
   return axiosInstance
-    .post<SoftwareTopic>(`${base}/topics`, topic)
+    .post<SoftwareTopic>(`${base}/topics`, { spec: topic.spec })
     .then((response) => response.data)
 }
 
 export function updateTopic(name: string, topic: SoftwareTopic) {
   return axiosInstance
-    .put<SoftwareTopic>(`${base}/topics/${name}`, topic)
+    .put<SoftwareTopic>(`${base}/topics/${name}`, { spec: topic.spec })
     .then((response) => response.data)
 }
 
@@ -500,4 +508,59 @@ export function deleteTopic(name: string) {
   return axiosInstance
     .delete<SoftwareTopic>(`${base}/topics/${name}`)
     .then((response) => response.data)
+}
+
+function publicDownloadSpec(spec: DownloadAsset['spec'], enabled = spec.enabled) {
+  return {
+    appName: spec.appName,
+    versionName: spec.versionName,
+    title: spec.title,
+    type: spec.type,
+    provider: spec.provider,
+    requiresLogin: spec.requiresLogin,
+    requiresCaptcha: spec.requiresCaptcha,
+    region: spec.region,
+    priority: spec.priority,
+    enabled,
+  }
+}
+
+function hasExplicitDownloadSecret(spec: DownloadAsset['spec']) {
+  return ['url', 'storageKey', 'extractionCode', 'passwordSecretName'].some((key) =>
+    Object.prototype.hasOwnProperty.call(spec, key),
+  )
+}
+
+async function listAllPages<T>(
+  path: string,
+  params: Record<string, unknown>,
+  pageSize = 100,
+): Promise<ListResult<T>> {
+  const items: T[] = []
+  let page = 1
+  let total = 0
+  do {
+    const response = await axiosInstance.get<ListResult<T>>(path, {
+      params: { ...params, page, size: pageSize },
+    })
+    const result = response.data
+    total = result.total
+    items.push(...result.items)
+    if (!result.items.length || items.length >= total) {
+      break
+    }
+    page += 1
+  } while (page < 10_000)
+
+  return {
+    page: 1,
+    size: items.length,
+    total,
+    items,
+    first: true,
+    last: true,
+    hasNext: false,
+    hasPrevious: false,
+    totalPages: 1,
+  }
 }

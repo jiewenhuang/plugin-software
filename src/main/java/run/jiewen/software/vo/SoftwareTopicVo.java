@@ -21,7 +21,7 @@ public class SoftwareTopicVo {
 
     String cover;
 
-    List<SoftwareTopic.Item> items;
+    List<SoftwareTopicItemVo> items;
 
     Boolean featured;
 
@@ -40,10 +40,26 @@ public class SoftwareTopicVo {
             .subtitle(spec == null ? null : spec.getSubtitle())
             .description(spec == null ? null : spec.getDescription())
             .cover(spec == null ? null : spec.getCover())
-            .items(spec == null ? null : spec.getItems())
+            // Raw app metadata names are intentionally not exposed from public topic summaries.
+            .items(List.of())
             .featured(spec == null ? null : spec.getFeatured())
             .priority(spec == null ? null : spec.getPriority())
             .appCount(status == null ? null : status.getAppCount())
+            .build();
+    }
+
+    public static SoftwareTopicVo from(SoftwareTopicDetailVo detail) {
+        return SoftwareTopicVo.builder()
+            .name(detail.getName())
+            .slug(detail.getSlug())
+            .title(detail.getTitle())
+            .subtitle(detail.getSubtitle())
+            .description(detail.getDescription())
+            .cover(detail.getCover())
+            .items(detail.getItems())
+            .featured(detail.getFeatured())
+            .priority(detail.getPriority())
+            .appCount(detail.getAppCount())
             .build();
     }
 }

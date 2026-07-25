@@ -21,6 +21,7 @@ public class DownloadAsset extends AbstractExtension {
     private Status status;
 
     @Data
+    @Schema(name = "DownloadAssetSpec")
     public static class Spec {
 
         @Schema(requiredMode = REQUIRED, description = "SoftwareApp metadata.name.")
@@ -56,6 +57,7 @@ public class DownloadAsset extends AbstractExtension {
     }
 
     @Data
+    @Schema(name = "DownloadAssetStatus")
     public static class Status {
 
         private String health;
@@ -63,5 +65,11 @@ public class DownloadAsset extends AbstractExtension {
         private Instant lastCheckedAt;
 
         private Long downloadCount;
+
+        private String observedAppName;
+
+        private String observedVersionName;
+
+        private Long observedVersion;
     }
 }

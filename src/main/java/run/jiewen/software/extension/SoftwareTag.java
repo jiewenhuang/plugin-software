@@ -20,6 +20,7 @@ public class SoftwareTag extends AbstractExtension {
     private Status status;
 
     @Data
+    @Schema(name = "SoftwareTagSpec")
     public static class Spec {
 
         @Schema(requiredMode = REQUIRED)
@@ -40,8 +41,11 @@ public class SoftwareTag extends AbstractExtension {
     }
 
     @Data
+    @Schema(name = "SoftwareTagStatus")
     public static class Status {
 
         private Integer appCount;
+
+        private Long observedVersion;
     }
 }

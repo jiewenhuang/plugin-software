@@ -5,12 +5,18 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.lang.reflect.Field;
+import java.nio.charset.StandardCharsets;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Map;
+import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
@@ -30,7 +36,13 @@ import run.halo.app.extension.ListResult;
 import run.halo.app.extension.Metadata;
 import run.halo.app.extension.PageRequest;
 import run.halo.app.extension.ReactiveExtensionClient;
+import run.halo.app.extension.Secret;
+import run.halo.app.core.extension.content.Post;
+import run.halo.app.plugin.ReactiveSettingFetcher;
+import run.jiewen.software.SoftwareSecurityOptions;
 import run.jiewen.software.ai.SoftwareHtmlSanitizer;
+import run.jiewen.software.api.DownloadGrantRequest;
+import run.jiewen.software.download.SoftwareCaptchaVerifier;
 import run.jiewen.software.extension.DownloadAsset;
 import run.jiewen.software.extension.SoftwareApp;
 import run.jiewen.software.extension.SoftwareCategory;
@@ -102,6 +114,32 @@ class SoftwarePublicQueryServiceImplTest {
     }
 
     @Test
+    void exposesOnlySafeCaptchaBootstrapOptions() {
+        var settingFetcher = mock(ReactiveSettingFetcher.class);
+        var options = new SoftwareSecurityOptions();
+        options.setCaptchaSiteKey("site-key");
+        options.setCaptchaSecretName("turnstile-secret");
+        var secret = new Secret();
+        secret.setData(Map.of("secret", "server-secret".getBytes(StandardCharsets.UTF_8)));
+        when(settingFetcher.fetch(SoftwareSecurityOptions.GROUP, SoftwareSecurityOptions.class))
+            .thenReturn(Mono.just(options));
+        when(client.fetch(Secret.class, "turnstile-secret")).thenReturn(Mono.just(secret));
+        var configuredService = new SoftwarePublicQueryServiceImpl(
+            client, htmlSanitizer, SoftwareCaptchaVerifier.denying(), settingFetcher);
+
+        StepVerifier.create(configuredService.getDownloadSecurityOptions())
+            .assertNext(result -> {
+                assertThat(result.getCaptchaProvider()).isEqualTo("turnstile");
+                assertThat(result.getCaptchaSiteKey()).isEqualTo("site-key");
+                assertThat(result.isCaptchaConfigured()).isTrue();
+                assertThat(List.of(result.getClass().getDeclaredFields()).stream()
+                    .map(Field::getName))
+                    .doesNotContain("captchaSecretName", "captchaSecretKey", "secret");
+            })
+            .verifyComplete();
+    }
+
+    @Test
     void getAppDetailBySlugIncludesVersionsAndSafeDownloadAssets() {
         when(client.listBy(eq(SoftwareApp.class), any(ListOptions.class), any(PageRequest.class)))
             .thenReturn(Mono.just(new ListResult<>(1, 1, 1, List.of(app()))));
@@ -111,10 +149,8 @@ class SoftwarePublicQueryServiceImplTest {
             .thenReturn(reactor.core.publisher.Flux.just(downloadAsset()));
         when(client.fetch(SoftwareCategory.class, "system-tools"))
             .thenReturn(Mono.just(category("系统工具")));
-        when(client.fetch(SoftwareTag.class, "cleaner"))
-            .thenReturn(Mono.just(tag("系统清理")));
-        when(client.fetch(SoftwareTag.class, "utility"))
-            .thenReturn(Mono.empty());
+        when(client.listAll(eq(SoftwareTag.class), any(ListOptions.class), any()))
+            .thenReturn(Flux.just(tag("系统清理")));
 
         StepVerifier.create(service.getAppDetailBySlug("cleanmymac-x"))
             .assertNext(detail -> {
@@ -338,6 +374,8 @@ class SoftwarePublicQueryServiceImplTest {
             .thenReturn(Mono.just(new ListResult<>(1, 1, 1, List.of(app()))));
         when(client.listAll(eq(DownloadAsset.class), any(ListOptions.class), any()))
             .thenReturn(reactor.core.publisher.Flux.just(loginRequiredDownloadAsset()));
+        when(client.listAll(eq(SoftwareVersion.class), any(ListOptions.class), any()))
+            .thenReturn(Flux.just(version()));
 
         StepVerifier.create(service.getPrimaryDownloadAsset("cleanmymac-x"))
             .expectErrorSatisfies(error -> assertThat(error)
@@ -354,8 +392,10 @@ class SoftwarePublicQueryServiceImplTest {
             .thenReturn(Mono.just(new ListResult<>(1, 1, 1, List.of(app()))));
         when(client.listAll(eq(DownloadAsset.class), any(ListOptions.class), any()))
             .thenReturn(reactor.core.publisher.Flux.just(loginRequiredDownloadAsset()));
+        when(client.listAll(eq(SoftwareVersion.class), any(ListOptions.class), any()))
+            .thenReturn(Flux.just(version()));
 
-        var authentication = new UsernamePasswordAuthenticationToken("member", "n/a");
+        var authentication = new UsernamePasswordAuthenticationToken("member", "n/a", List.of());
 
         StepVerifier.create(service.getPrimaryDownloadAsset("cleanmymac-x")
                 .contextWrite(ReactiveSecurityContextHolder.withAuthentication(authentication)))
@@ -367,11 +407,31 @@ class SoftwarePublicQueryServiceImplTest {
     }
 
     @Test
+    void loginRequiredDownloadRejectsUnauthenticatedAuthenticationToken() {
+        when(client.listBy(eq(SoftwareApp.class), any(ListOptions.class), any(PageRequest.class)))
+            .thenReturn(Mono.just(new ListResult<>(1, 1, 1, List.of(app()))));
+        when(client.listAll(eq(DownloadAsset.class), any(ListOptions.class), any()))
+            .thenReturn(reactor.core.publisher.Flux.just(loginRequiredDownloadAsset()));
+        when(client.listAll(eq(SoftwareVersion.class), any(ListOptions.class), any()))
+            .thenReturn(Flux.just(version()));
+        var unauthenticated = new UsernamePasswordAuthenticationToken("member", "n/a");
+
+        StepVerifier.create(service.getPrimaryDownloadAsset("cleanmymac-x")
+                .contextWrite(ReactiveSecurityContextHolder.withAuthentication(unauthenticated)))
+            .expectErrorSatisfies(error -> assertThat(error)
+                .isInstanceOfSatisfying(ResponseStatusException.class, statusError ->
+                    assertThat(statusError.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED)))
+            .verify();
+    }
+
+    @Test
     void resolvesPrimaryDownloadAssetBySlug() {
         when(client.listBy(eq(SoftwareApp.class), any(ListOptions.class), any(PageRequest.class)))
             .thenReturn(Mono.just(new ListResult<>(1, 1, 1, List.of(app()))));
         when(client.listAll(eq(DownloadAsset.class), any(ListOptions.class), any()))
             .thenReturn(reactor.core.publisher.Flux.just(downloadAsset()));
+        when(client.listAll(eq(SoftwareVersion.class), any(ListOptions.class), any()))
+            .thenReturn(Flux.just(version()));
 
         StepVerifier.create(service.getPrimaryDownloadAsset("cleanmymac-x"))
             .assertNext(asset -> {
@@ -389,14 +449,226 @@ class SoftwarePublicQueryServiceImplTest {
         mirror.getSpec().setUrl("https://mirror.example.com/cleanmymac.dmg");
         when(client.listBy(eq(SoftwareApp.class), any(ListOptions.class), any(PageRequest.class)))
             .thenReturn(Mono.just(new ListResult<>(1, 1, 1, List.of(app()))));
-        when(client.listAll(eq(DownloadAsset.class), any(ListOptions.class), any()))
-            .thenReturn(reactor.core.publisher.Flux.just(downloadAsset(), mirror));
+        when(client.fetch(DownloadAsset.class, "asset-2")).thenReturn(Mono.just(mirror));
+        when(client.fetch(SoftwareVersion.class, "version-1")).thenReturn(Mono.just(version()));
+        when(client.update(any(DownloadAsset.class))).thenAnswer(invocation ->
+            Mono.just(invocation.getArgument(0)));
 
         StepVerifier.create(service.getDownloadAsset("cleanmymac-x", "asset-2"))
             .assertNext(asset -> {
                 assertThat(asset.getName()).isEqualTo("asset-2");
                 assertThat(asset.getTitle()).isEqualTo("Mirror DMG");
                 assertThat(asset.getUrl()).isEqualTo("https://mirror.example.com/cleanmymac.dmg");
+            })
+            .verifyComplete();
+
+        verify(client, times(2)).fetch(DownloadAsset.class, "asset-2");
+        verify(client).fetch(SoftwareVersion.class, "version-1");
+        verify(client, never()).listAll(eq(DownloadAsset.class), any(ListOptions.class), any());
+        verify(client, never()).listAll(eq(SoftwareVersion.class), any(ListOptions.class), any());
+    }
+
+    @Test
+    void selectedDownloadAssetFailsClosedWhenItsVersionIsNotReleased() {
+        var selected = downloadAsset();
+        var draftVersion = version();
+        draftVersion.getSpec().setStatus("draft");
+        when(client.listBy(eq(SoftwareApp.class), any(ListOptions.class), any(PageRequest.class)))
+            .thenReturn(Mono.just(new ListResult<>(1, 1, 1, List.of(app()))));
+        when(client.fetch(DownloadAsset.class, "asset-1")).thenReturn(Mono.just(selected));
+        when(client.fetch(SoftwareVersion.class, "version-1"))
+            .thenReturn(Mono.just(draftVersion));
+
+        StepVerifier.create(service.getDownloadAsset("cleanmymac-x", "asset-1"))
+            .expectErrorSatisfies(error -> assertThat(error)
+                .isInstanceOfSatisfying(ResponseStatusException.class, statusError ->
+                    assertThat(statusError.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND)))
+            .verify();
+
+        verify(client, never()).listAll(eq(DownloadAsset.class), any(ListOptions.class), any());
+        verify(client, never()).listAll(eq(SoftwareVersion.class), any(ListOptions.class), any());
+    }
+
+    @Test
+    void legacyDownloadEndpointFailsClosedForUnsafeTarget() {
+        var asset = downloadAsset();
+        asset.getSpec().setUrl("javascript:alert(1)");
+        asset.getSpec().setStorageKey(null);
+        asset.getSpec().setPasswordSecretName(null);
+        when(client.listBy(eq(SoftwareApp.class), any(ListOptions.class), any(PageRequest.class)))
+            .thenReturn(Mono.just(new ListResult<>(1, 1, 1, List.of(app()))));
+        when(client.listAll(eq(SoftwareVersion.class), any(ListOptions.class), any()))
+            .thenReturn(Flux.just(version()));
+        when(client.listAll(eq(DownloadAsset.class), any(ListOptions.class), any()))
+            .thenReturn(Flux.just(asset));
+
+        StepVerifier.create(service.getPrimaryDownloadAsset("cleanmymac-x"))
+            .expectErrorSatisfies(error -> assertThat(error)
+                .isInstanceOfSatisfying(ResponseStatusException.class, statusError ->
+                    assertThat(statusError.getStatusCode()).isEqualTo(HttpStatus.CONFLICT)))
+            .verify();
+
+        verify(client, never()).update(any(DownloadAsset.class));
+    }
+
+    @Test
+    void downloadGrantVerifiesCaptchaResolvesTargetAndRecordsCount() {
+        var asset = downloadAsset();
+        asset.getSpec().setRequiresCaptcha(true);
+        asset.getSpec().setPasswordSecretName(null);
+        var status = new DownloadAsset.Status();
+        status.setDownloadCount(4L);
+        asset.setStatus(status);
+        when(client.listBy(eq(SoftwareApp.class), any(ListOptions.class), any(PageRequest.class)))
+            .thenReturn(Mono.just(new ListResult<>(1, 1, 1, List.of(app()))));
+        when(client.listAll(eq(SoftwareVersion.class), any(ListOptions.class), any()))
+            .thenReturn(Flux.just(version()));
+        when(client.listAll(eq(DownloadAsset.class), any(ListOptions.class), any()))
+            .thenReturn(Flux.just(asset));
+        when(client.fetch(DownloadAsset.class, "asset-1")).thenReturn(Mono.just(asset));
+        when(client.update(any(DownloadAsset.class))).thenAnswer(invocation ->
+            Mono.just(invocation.getArgument(0)));
+        var receivedToken = new AtomicReference<String>();
+        var receivedAddress = new AtomicReference<String>();
+        SoftwareCaptchaVerifier verifier = (token, remoteAddress) -> {
+            receivedToken.set(token);
+            receivedAddress.set(remoteAddress);
+            return Mono.just(true);
+        };
+        var securedService = new SoftwarePublicQueryServiceImpl(client, htmlSanitizer, verifier);
+
+        StepVerifier.create(securedService.grantDownload(
+                new DownloadGrantRequest("cleanmymac-x", null, "captcha-token"), "203.0.113.8"))
+            .assertNext(grant -> {
+                assertThat(grant.getAssetName()).isEqualTo("asset-1");
+                assertThat(grant.getUrl()).isEqualTo("https://example.com/cleanmymac.dmg");
+                assertThat(grant.getExtractionCode()).isEqualTo("secret-code");
+                assertThat(grant.getExpiresAt()).isAfter(Instant.now());
+            })
+            .verifyComplete();
+
+        assertThat(receivedToken).hasValue("captcha-token");
+        assertThat(receivedAddress).hasValue("203.0.113.8");
+        var updatedAsset = ArgumentCaptor.forClass(DownloadAsset.class);
+        verify(client).update(updatedAsset.capture());
+        assertThat(updatedAsset.getValue().getStatus().getDownloadCount()).isEqualTo(5L);
+    }
+
+    @Test
+    void downloadGrantSkipsUnsafeSecretUrlAndUsesSafeAssetTarget() {
+        var asset = downloadAsset();
+        asset.getSpec().setPasswordSecretName("secret-name");
+        var secret = new Secret();
+        secret.setData(Map.of("url", "javascript:alert(1)".getBytes(StandardCharsets.UTF_8)));
+        when(client.listBy(eq(SoftwareApp.class), any(ListOptions.class), any(PageRequest.class)))
+            .thenReturn(Mono.just(new ListResult<>(1, 1, 1, List.of(app()))));
+        when(client.listAll(eq(SoftwareVersion.class), any(ListOptions.class), any()))
+            .thenReturn(Flux.just(version()));
+        when(client.listAll(eq(DownloadAsset.class), any(ListOptions.class), any()))
+            .thenReturn(Flux.just(asset));
+        when(client.fetch(Secret.class, "secret-name")).thenReturn(Mono.just(secret));
+        when(client.fetch(DownloadAsset.class, "asset-1")).thenReturn(Mono.just(asset));
+        when(client.update(any(DownloadAsset.class))).thenAnswer(invocation ->
+            Mono.just(invocation.getArgument(0)));
+
+        StepVerifier.create(service.grantDownload(
+                new DownloadGrantRequest("cleanmymac-x", null, null), null))
+            .assertNext(grant -> assertThat(grant.getUrl())
+                .isEqualTo("https://example.com/cleanmymac.dmg"))
+            .verifyComplete();
+    }
+
+    @Test
+    void failedCaptchaDoesNotIssueGrantOrIncrementCounter() {
+        var asset = downloadAsset();
+        asset.getSpec().setRequiresCaptcha(true);
+        asset.getSpec().setPasswordSecretName(null);
+        when(client.listBy(eq(SoftwareApp.class), any(ListOptions.class), any(PageRequest.class)))
+            .thenReturn(Mono.just(new ListResult<>(1, 1, 1, List.of(app()))));
+        when(client.listAll(eq(SoftwareVersion.class), any(ListOptions.class), any()))
+            .thenReturn(Flux.just(version()));
+        when(client.listAll(eq(DownloadAsset.class), any(ListOptions.class), any()))
+            .thenReturn(Flux.just(asset));
+        var securedService = new SoftwarePublicQueryServiceImpl(client, htmlSanitizer,
+            (token, remoteAddress) -> Mono.just(false));
+
+        StepVerifier.create(securedService.grantDownload(
+                new DownloadGrantRequest("cleanmymac-x", null, "bad-token"), null))
+            .expectErrorSatisfies(error -> assertThat(error)
+                .isInstanceOfSatisfying(ResponseStatusException.class, statusError ->
+                    assertThat(statusError.getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN)))
+            .verify();
+
+        verify(client, never()).update(any(DownloadAsset.class));
+    }
+
+    @Test
+    void downloadSelectionFailsClosedForDraftVersions() {
+        var draftVersion = version();
+        draftVersion.getSpec().setStatus("draft");
+        when(client.listBy(eq(SoftwareApp.class), any(ListOptions.class), any(PageRequest.class)))
+            .thenReturn(Mono.just(new ListResult<>(1, 1, 1, List.of(app()))));
+        when(client.listAll(eq(SoftwareVersion.class), any(ListOptions.class), any()))
+            .thenReturn(Flux.just(draftVersion));
+
+        StepVerifier.create(service.getPrimaryDownloadAsset("cleanmymac-x"))
+            .expectErrorSatisfies(error -> assertThat(error)
+                .isInstanceOfSatisfying(ResponseStatusException.class, statusError ->
+                    assertThat(statusError.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND)))
+            .verify();
+    }
+
+    @Test
+    void downloadSelectionFailsClosedForDisabledAssets() {
+        var disabledAsset = downloadAsset();
+        disabledAsset.getSpec().setEnabled(false);
+        when(client.listBy(eq(SoftwareApp.class), any(ListOptions.class), any(PageRequest.class)))
+            .thenReturn(Mono.just(new ListResult<>(1, 1, 1, List.of(app()))));
+        when(client.listAll(eq(SoftwareVersion.class), any(ListOptions.class), any()))
+            .thenReturn(Flux.just(version()));
+        when(client.listAll(eq(DownloadAsset.class), any(ListOptions.class), any()))
+            .thenReturn(Flux.just(disabledAsset));
+
+        StepVerifier.create(service.getPrimaryDownloadAsset("cleanmymac-x"))
+            .expectErrorSatisfies(error -> assertThat(error)
+                .isInstanceOfSatisfying(ResponseStatusException.class, statusError ->
+                    assertThat(statusError.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND)))
+            .verify();
+    }
+
+    @Test
+    void relatedAppsAndPostsFailClosedAndPreserveConfiguredOrder() {
+        var root = app();
+        root.getSpec().setCategoryName(null);
+        root.getSpec().setTagNames(List.of());
+        root.getSpec().setRelatedAppNames(List.of("related-draft", "related-public"));
+        root.getSpec().setRelatedPostNames(List.of("post-private", "post-public"));
+        var publicRelated = app();
+        publicRelated.getMetadata().setName("related-public");
+        publicRelated.getSpec().setSlug("related-public");
+        var draftRelated = app();
+        draftRelated.getMetadata().setName("related-draft");
+        draftRelated.getSpec().setSlug("related-draft");
+        draftRelated.getSpec().setPublished(false);
+        when(client.listBy(eq(SoftwareApp.class), any(ListOptions.class), any(PageRequest.class)))
+            .thenReturn(Mono.just(new ListResult<>(1, 1, 1, List.of(root))));
+        when(client.listAll(eq(SoftwareVersion.class), any(ListOptions.class), any()))
+            .thenReturn(Flux.empty());
+        when(client.listAll(eq(SoftwareApp.class), any(ListOptions.class), any()))
+            .thenReturn(Flux.just(draftRelated, publicRelated));
+        when(client.listAll(eq(Post.class), any(ListOptions.class), any()))
+            .thenReturn(Flux.just(post("post-private", false), post("post-public", true)));
+
+        StepVerifier.create(service.getAppDetailBySlug("cleanmymac-x"))
+            .assertNext(detail -> {
+                assertThat(detail.getRelatedApps())
+                    .extracting(SoftwareAppVo::getSlug)
+                    .containsExactly("related-public");
+                assertThat(detail.getRelatedPosts())
+                    .extracting("slug")
+                    .containsExactly("post-public");
+                assertThat(detail.getRelatedPosts().get(0).getExcerpt())
+                    .isEqualTo("<p>Safe excerpt</p>");
             })
             .verifyComplete();
     }
@@ -458,6 +730,7 @@ class SoftwarePublicQueryServiceImplTest {
         var spec = new SoftwareCategory.Spec();
         spec.setSlug("system-tools");
         spec.setDisplayName(displayName);
+        spec.setVisible(true);
 
         var category = new SoftwareCategory();
         category.setMetadata(new Metadata());
@@ -470,6 +743,7 @@ class SoftwarePublicQueryServiceImplTest {
         var spec = new SoftwareTag.Spec();
         spec.setSlug("cleaner");
         spec.setDisplayName(displayName);
+        spec.setVisible(true);
 
         var tag = new SoftwareTag();
         tag.setMetadata(new Metadata());
@@ -514,7 +788,7 @@ class SoftwarePublicQueryServiceImplTest {
         spec.setUrl("https://example.com/cleanmymac.dmg");
         spec.setStorageKey("secret-storage-key");
         spec.setExtractionCode("secret-code");
-        spec.setPasswordSecretName("secret-name");
+        spec.setPasswordSecretName(null);
         spec.setEnabled(true);
         spec.setRequiresLogin(false);
         spec.setRequiresCaptcha(false);
@@ -537,5 +811,28 @@ class SoftwarePublicQueryServiceImplTest {
         var asset = downloadAsset();
         asset.getSpec().setRequiresLogin(true);
         return asset;
+    }
+
+    private static Post post(String name, boolean publicPost) {
+        var metadata = new Metadata();
+        metadata.setName(name);
+        metadata.setLabels(Map.of(Post.PUBLISHED_LABEL, Boolean.toString(publicPost)));
+        var spec = new Post.PostSpec();
+        spec.setTitle(publicPost ? "Public post" : "Private post");
+        spec.setSlug(name);
+        spec.setPublish(publicPost);
+        spec.setDeleted(false);
+        spec.setVisible(publicPost ? Post.VisibleEnum.PUBLIC : Post.VisibleEnum.PRIVATE);
+        spec.setPublishTime(Instant.parse("2026-06-01T00:00:00Z"));
+        var status = new Post.PostStatus();
+        status.setPermalink("/archives/" + name);
+        status.setExcerpt(publicPost
+            ? "<p>Safe excerpt</p><script>alert(1)</script>"
+            : "Private excerpt");
+        var post = new Post();
+        post.setMetadata(metadata);
+        post.setSpec(spec);
+        post.setStatus(status);
+        return post;
     }
 }

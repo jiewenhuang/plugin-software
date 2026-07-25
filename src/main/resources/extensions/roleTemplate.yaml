@@ -9,17 +9,14 @@ metadata:
     rbac.authorization.halo.run/display-name: "软件查看"
     rbac.authorization.halo.run/ui-permissions: '["plugin:software:view"]'
 rules:
-  - apiGroups: [ "software.jiewen.run", "console.api.software.jiewen.run" ]
+  - apiGroups: [ "console.api.software.jiewen.run" ]
     resources:
-      - softwareapps
-      - softwareversions
-      - downloadassets
-      - softwarecategories
-      - softwaretags
-      - softwaretopics
+      - options
       - apps
+      - apps/stats
       - versions
       - download-assets
+      - download-assets/stats
       - categories
       - tags
       - topics
@@ -38,14 +35,8 @@ metadata:
     rbac.authorization.halo.run/dependencies: '["role-template-software-view"]'
     rbac.authorization.halo.run/ui-permissions: '["plugin:software:manage"]'
 rules:
-  - apiGroups: [ "software.jiewen.run", "console.api.software.jiewen.run" ]
+  - apiGroups: [ "console.api.software.jiewen.run" ]
     resources:
-      - softwareapps
-      - softwareversions
-      - downloadassets
-      - softwarecategories
-      - softwaretags
-      - softwaretopics
       - apps
       - versions
       - download-assets
@@ -58,6 +49,22 @@ rules:
 apiVersion: v1alpha1
 kind: Role
 metadata:
+  name: role-template-software-secret
+  labels:
+    halo.run/role-template: "true"
+  annotations:
+    rbac.authorization.halo.run/module: "软件"
+    rbac.authorization.halo.run/display-name: "软件敏感下载配置"
+    rbac.authorization.halo.run/dependencies: '["role-template-software-view"]'
+    rbac.authorization.halo.run/ui-permissions: '["plugin:software:secret"]'
+rules:
+  - apiGroups: [ "console.api.software.jiewen.run" ]
+    resources: [ "download-assets/secrets" ]
+    verbs: [ "get", "list", "update" ]
+---
+apiVersion: v1alpha1
+kind: Role
+metadata:
   name: role-template-software-anonymous
   labels:
     halo.run/role-template: "true"
@@ -65,5 +72,8 @@ metadata:
     rbac.authorization.halo.run/aggregate-to-anonymous: "true"
 rules:
   - apiGroups: [ "api.software.jiewen.run" ]
-    resources: [ "apps", "apps/download", "categories", "tags", "topics" ]
+    resources: [ "apps", "apps/download", "download-options", "categories", "tags", "topics" ]
     verbs: [ "get", "list" ]
+  - apiGroups: [ "api.software.jiewen.run" ]
+    resources: [ "download-grants" ]
+    verbs: [ "create" ]

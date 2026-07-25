@@ -21,18 +21,18 @@
     "tabWidth": 2
   },
   "dependencies": {
-    "@halo-dev/api-client": "^2.24.0",
-    "@halo-dev/components": "^2.24.0",
-    "@halo-dev/richtext-editor": "^2.24.0",
-    "@halo-dev/ui-shared": "^2.24.0",
-    "axios": "^1.16.1",
+    "@halo-dev/api-client": "^2.25.2",
+    "@halo-dev/components": "^2.25.2",
+    "@halo-dev/richtext-editor": "^2.25.2",
+    "@halo-dev/ui-shared": "^2.25.2",
+    "axios": "^1.18.1",
     "canvas-confetti": "^1.9.3",
     "vue": "^3.5.35",
     "vue-router": "^5.1.0"
   },
   "devDependencies": {
     "vite": "^8.0.16",
-    "@halo-dev/ui-plugin-bundler-kit": "^2.24.0",
+    "@halo-dev/ui-plugin-bundler-kit": "^2.25.2",
     "@iconify-json/ri": "^1.2.6",
     "@tsconfig/node20": "^20.1.6",
     "@types/canvas-confetti": "^1.9.0",
@@ -57,5 +57,12 @@
     "vitest": "^4.1.8",
     "vue-tsc": "^3.3.3"
   },
-  "packageManager": "pnpm@10.12.4"
+  "packageManager": "pnpm@10.12.4",
+  "pnpm": {
+    "overrides": {
+      "form-data": "4.0.6",
+      "immutable": "5.1.9",
+      "postcss": "8.5.23"
+    }
+  }
 }

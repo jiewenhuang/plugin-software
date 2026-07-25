@@ -4,7 +4,7 @@ export type TopicStatusFilter = '' | 'published' | 'draft' | 'featured'
 export type TopicSortKey =
   | 'created-desc'
   | 'created-asc'
-  | 'priority-desc'
+  | 'priority-asc'
   | 'apps-desc'
   | 'title-asc'
 
@@ -46,13 +46,6 @@ export interface TopicRow {
 }
 
 const topicTones = ['mint', 'blue', 'violet', 'amber', 'rose', 'slate']
-
-export function topicListParams() {
-  return {
-    page: 1,
-    size: 1000,
-  }
-}
 
 export function buildTopicStats(topics: SoftwareTopic[]): TopicStats {
   return topics.reduce<TopicStats>(
@@ -133,8 +126,8 @@ export function sortTopicRows(rows: TopicRow[], sortKey: TopicSortKey) {
     if (sortKey === 'created-asc') {
       return compareText(left.createdAt, right.createdAt)
     }
-    if (sortKey === 'priority-desc') {
-      return right.priority - left.priority || compareText(left.title, right.title)
+    if (sortKey === 'priority-asc') {
+      return left.priority - right.priority || compareText(left.title, right.title)
     }
     if (sortKey === 'apps-desc') {
       return right.appCount - left.appCount || compareText(left.title, right.title)

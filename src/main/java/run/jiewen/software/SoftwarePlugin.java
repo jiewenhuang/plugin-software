@@ -49,6 +49,12 @@ public class SoftwarePlugin extends BasePlugin {
                     : app.getSpec().getTagNames().stream().collect(Collectors.toSet())));
             indexSpecs.add(IndexSpecs.<SoftwareApp, String>single("spec.platform", String.class)
                 .indexFunc(app -> app.getSpec().getPlatform()));
+            indexSpecs.add(IndexSpecs.<SoftwareApp, String>multi("spec.platforms", String.class)
+                .indexFunc(app -> app.getSpec().getPlatforms() == null
+                    ? Set.of()
+                    : app.getSpec().getPlatforms().stream()
+                        .filter(Objects::nonNull)
+                        .collect(Collectors.toSet())));
             indexSpecs.add(IndexSpecs.<SoftwareApp, Boolean>single("spec.published", Boolean.class)
                 .indexFunc(app -> app.getSpec().getPublished()));
             indexSpecs.add(IndexSpecs.<SoftwareApp, Boolean>single("spec.featured", Boolean.class)
@@ -97,10 +103,29 @@ public class SoftwarePlugin extends BasePlugin {
                 .indexFunc(asset -> asset.getSpec().getVersionName()));
             indexSpecs.add(IndexSpecs.<DownloadAsset, String>single("spec.title", String.class)
                 .indexFunc(asset -> asset.getSpec().getTitle()));
+            indexSpecs.add(IndexSpecs.<DownloadAsset, String>single("spec.type", String.class)
+                .indexFunc(asset -> asset.getSpec().getType()));
+            indexSpecs.add(IndexSpecs.<DownloadAsset, String>single("spec.provider", String.class)
+                .indexFunc(asset -> asset.getSpec().getProvider()));
             indexSpecs.add(IndexSpecs.<DownloadAsset, Boolean>single("spec.enabled", Boolean.class)
                 .indexFunc(asset -> asset.getSpec().getEnabled()));
+            indexSpecs.add(IndexSpecs.<DownloadAsset, Boolean>single("spec.protected", Boolean.class)
+                .indexFunc(asset -> {
+                    var spec = asset.getSpec();
+                    return Boolean.TRUE.equals(spec.getRequiresLogin())
+                        || Boolean.TRUE.equals(spec.getRequiresCaptcha())
+                        || hasText(spec.getExtractionCode())
+                        || hasText(spec.getPasswordSecretName());
+                }));
             indexSpecs.add(IndexSpecs.<DownloadAsset, Integer>single("spec.priority", Integer.class)
                 .indexFunc(asset -> asset.getSpec().getPriority()));
+            indexSpecs.add(IndexSpecs.<DownloadAsset, Long>single("status.downloadCount", Long.class)
+                .indexFunc(asset -> asset.getStatus() == null
+                    ? null : asset.getStatus().getDownloadCount()));
+            indexSpecs.add(IndexSpecs.<DownloadAsset, String>single("status.lastCheckedAt", String.class)
+                .indexFunc(asset -> asset.getStatus() == null
+                    || asset.getStatus().getLastCheckedAt() == null
+                    ? null : asset.getStatus().getLastCheckedAt().toString()));
         });
         schemeManager.register(SoftwareCategory.class, indexSpecs -> {
             indexSpecs.add(IndexSpecs.<SoftwareCategory, String>single("spec.slug", String.class)
@@ -114,6 +139,9 @@ public class SoftwarePlugin extends BasePlugin {
                 .indexFunc(category -> category.getSpec().getVisible()));
             indexSpecs.add(IndexSpecs.<SoftwareCategory, Integer>single("spec.priority", Integer.class)
                 .indexFunc(category -> category.getSpec().getPriority()));
+            indexSpecs.add(IndexSpecs.<SoftwareCategory, Integer>single("status.appCount", Integer.class)
+                .indexFunc(category -> category.getStatus() == null
+                    ? null : category.getStatus().getAppCount()));
         });
         schemeManager.register(SoftwareTag.class, indexSpecs -> {
             indexSpecs.add(IndexSpecs.<SoftwareTag, String>single("spec.slug", String.class)
@@ -124,6 +152,8 @@ public class SoftwarePlugin extends BasePlugin {
                 .indexFunc(tag -> tag.getSpec().getVisible()));
             indexSpecs.add(IndexSpecs.<SoftwareTag, Integer>single("spec.priority", Integer.class)
                 .indexFunc(tag -> tag.getSpec().getPriority()));
+            indexSpecs.add(IndexSpecs.<SoftwareTag, Integer>single("status.appCount", Integer.class)
+                .indexFunc(tag -> tag.getStatus() == null ? null : tag.getStatus().getAppCount()));
         });
         schemeManager.register(SoftwareTopic.class, indexSpecs -> {
             indexSpecs.add(IndexSpecs.<SoftwareTopic, String>single("spec.slug", String.class)
@@ -136,6 +166,9 @@ public class SoftwarePlugin extends BasePlugin {
                 .indexFunc(topic -> topic.getSpec().getFeatured()));
             indexSpecs.add(IndexSpecs.<SoftwareTopic, Integer>single("spec.priority", Integer.class)
                 .indexFunc(topic -> topic.getSpec().getPriority()));
+            indexSpecs.add(IndexSpecs.<SoftwareTopic, Integer>single("status.appCount", Integer.class)
+                .indexFunc(topic -> topic.getStatus() == null
+                    ? null : topic.getStatus().getAppCount()));
         });
     }
 
@@ -151,5 +184,9 @@ public class SoftwarePlugin extends BasePlugin {
 
     private void unregister(Class<? extends run.halo.app.extension.Extension> type) {
         schemeManager.unregister(Scheme.buildFromType(Objects.requireNonNull(type)));
+    }
+
+    private static boolean hasText(String value) {
+        return value != null && !value.isBlank();
     }
 }

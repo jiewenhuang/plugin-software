@@ -8,10 +8,8 @@ import {
   buildDownloadAssetStats,
   filterDownloadAssetRows,
   copyableUrl,
-  downloadAssetListParams,
   downloadProviderLabel,
   downloadTypeLabel,
-  linkFingerprintCells,
   platformTokens,
   sortDownloadAssetRows,
 } from '../download-asset-console'
@@ -193,22 +191,12 @@ describe('download asset console helpers', () => {
     expect(rows.map((row) => row.name)).toEqual(['asset-1', 'asset-2'])
   })
 
-  it('normalizes platform tokens and creates deterministic link cells', () => {
+  it('normalizes platform tokens', () => {
     expect(platformTokens('Windows macOS Linux').map((item) => item.className)).toEqual([
       'windows',
       'macos',
       'linux',
     ])
-    expect(linkFingerprintCells('https://d.halo.run/abc123')).toHaveLength(81)
-    expect(linkFingerprintCells('https://d.halo.run/abc123')).toEqual(
-      linkFingerprintCells('https://d.halo.run/abc123'),
-    )
   })
 
-  it('keeps console list requests broad so local filters can match app names and urls', () => {
-    expect(downloadAssetListParams()).toEqual({
-      page: 1,
-      size: 1000,
-    })
-  })
 })

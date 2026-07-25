@@ -6,7 +6,6 @@ import {
   filterTopicRows,
   formatTopicDate,
   sortTopicRows,
-  topicListParams,
   topicMatchesConsoleFilters,
   topicStatus,
 } from '../topic-console'
@@ -129,23 +128,19 @@ describe('topic console helpers', () => {
       'topic-design',
       'topic-dev',
     ])
-    expect(sortTopicRows(rows, 'priority-desc').map((row) => row.name)).toEqual([
-      'topic-starter',
-      'topic-design',
+    expect(sortTopicRows(rows, 'priority-asc').map((row) => row.name)).toEqual([
       'topic-dev',
+      'topic-design',
+      'topic-starter',
     ])
   })
 
-  it('formats dates and keeps list requests broad for local console filters', () => {
+  it('formats dates and status values', () => {
     expect(topicStatus(topics[2])).toEqual({
       className: 'published',
       text: '已发布',
     })
     expect(formatTopicDate('2024-06-02T10:30:00Z')).toBe('2024-06-02 10:30')
     expect(formatTopicDate()).toBe('未记录')
-    expect(topicListParams()).toEqual({
-      page: 1,
-      size: 1000,
-    })
   })
 })

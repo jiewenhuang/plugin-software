@@ -3,6 +3,7 @@ package run.jiewen.software.finders;
 import reactor.core.publisher.Mono;
 import run.halo.app.extension.ListResult;
 import run.jiewen.software.SoftwareConsoleQuery;
+import run.jiewen.software.api.DownloadAssetSecretCommand;
 import run.jiewen.software.extension.DownloadAsset;
 import run.jiewen.software.extension.SoftwareApp;
 import run.jiewen.software.extension.SoftwareCategory;
@@ -10,6 +11,8 @@ import run.jiewen.software.extension.SoftwareTag;
 import run.jiewen.software.extension.SoftwareTopic;
 import run.jiewen.software.extension.SoftwareVersion;
 import run.jiewen.software.vo.SoftwareConsoleStatsVo;
+import run.jiewen.software.vo.DownloadAssetSecretVo;
+import run.jiewen.software.vo.DownloadAssetStatsVo;
 
 public interface SoftwareConsoleService {
 
@@ -21,6 +24,8 @@ public interface SoftwareConsoleService {
 
     Mono<SoftwareApp> createApp(SoftwareApp app);
 
+    Mono<SoftwareApp> replaceApp(String name, SoftwareApp app);
+
     Mono<SoftwareApp> updateApp(String name, SoftwareApp app);
 
     Mono<SoftwareApp> deleteApp(String name);
@@ -29,21 +34,34 @@ public interface SoftwareConsoleService {
 
     Mono<SoftwareVersion> createVersion(SoftwareVersion version);
 
+    Mono<SoftwareVersion> replaceVersion(String name, SoftwareVersion version);
+
     Mono<SoftwareVersion> updateVersion(String name, SoftwareVersion version);
 
     Mono<SoftwareVersion> deleteVersion(String name);
 
     Mono<ListResult<DownloadAsset>> listDownloadAssets(SoftwareConsoleQuery query);
 
+    Mono<DownloadAssetStatsVo> getDownloadAssetStats();
+
     Mono<DownloadAsset> createDownloadAsset(DownloadAsset asset);
 
+    Mono<DownloadAsset> replaceDownloadAsset(String name, DownloadAsset asset);
+
     Mono<DownloadAsset> updateDownloadAsset(String name, DownloadAsset asset);
+
+    Mono<DownloadAssetSecretVo> getDownloadAssetSecret(String name);
+
+    Mono<DownloadAssetSecretVo> updateDownloadAssetSecret(String name,
+        DownloadAssetSecretCommand command);
 
     Mono<DownloadAsset> deleteDownloadAsset(String name);
 
     Mono<ListResult<SoftwareCategory>> listCategories(SoftwareConsoleQuery query);
 
     Mono<SoftwareCategory> createCategory(SoftwareCategory category);
+
+    Mono<SoftwareCategory> replaceCategory(String name, SoftwareCategory category);
 
     Mono<SoftwareCategory> updateCategory(String name, SoftwareCategory category);
 
@@ -55,6 +73,8 @@ public interface SoftwareConsoleService {
 
     Mono<SoftwareTag> createTag(SoftwareTag tag);
 
+    Mono<SoftwareTag> replaceTag(String name, SoftwareTag tag);
+
     Mono<SoftwareTag> updateTag(String name, SoftwareTag tag);
 
     Mono<SoftwareTag> deleteTag(String name);
@@ -62,6 +82,8 @@ public interface SoftwareConsoleService {
     Mono<ListResult<SoftwareTopic>> listTopics(SoftwareConsoleQuery query);
 
     Mono<SoftwareTopic> createTopic(SoftwareTopic topic);
+
+    Mono<SoftwareTopic> replaceTopic(String name, SoftwareTopic topic);
 
     Mono<SoftwareTopic> updateTopic(String name, SoftwareTopic topic);
 

@@ -171,7 +171,7 @@ export function softwareStatus(app: SoftwareApp): SoftwareStatusMeta {
 }
 
 export function platformTokens(
-  platform?: string,
+  platform?: string[] | string,
   platformOptions?: SoftwareOptionItem[],
 ): PlatformToken[] {
   return buildPlatformTokens(platform, platformOptions)

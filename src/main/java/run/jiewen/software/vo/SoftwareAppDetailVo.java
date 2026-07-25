@@ -86,6 +86,8 @@ public class SoftwareAppDetailVo {
 
     String platform;
 
+    List<String> platforms;
+
     List<String> architectures;
 
     String licenseType;
@@ -104,8 +106,18 @@ public class SoftwareAppDetailVo {
 
     List<DownloadAssetVo> downloadAssets;
 
+    List<SoftwareAppVo> relatedApps;
+
+    List<SoftwareRelatedPostVo> relatedPosts;
+
     public static SoftwareAppDetailVo from(SoftwareAppVo app, List<SoftwareVersionVo> versions,
         List<DownloadAssetVo> downloadAssets) {
+        return from(app, versions, downloadAssets, List.of(), List.of());
+    }
+
+    public static SoftwareAppDetailVo from(SoftwareAppVo app, List<SoftwareVersionVo> versions,
+        List<DownloadAssetVo> downloadAssets, List<SoftwareAppVo> relatedApps,
+        List<SoftwareRelatedPostVo> relatedPosts) {
         return SoftwareAppDetailVo.builder()
             .name(app.getName())
             .slug(app.getSlug())
@@ -146,6 +158,7 @@ public class SoftwareAppDetailVo {
             .localeUnit(app.getLocaleUnit())
             .localeLabel(app.getLocaleLabel())
             .platform(app.getPlatform())
+            .platforms(app.getPlatforms())
             .architectures(app.getArchitectures())
             .licenseType(app.getLicenseType())
             .locale(app.getLocale())
@@ -155,6 +168,8 @@ public class SoftwareAppDetailVo {
             .seo(app.getSeo())
             .versions(versions == null ? List.of() : versions)
             .downloadAssets(downloadAssets == null ? List.of() : downloadAssets)
+            .relatedApps(relatedApps == null ? List.of() : relatedApps)
+            .relatedPosts(relatedPosts == null ? List.of() : relatedPosts)
             .build();
     }
 }

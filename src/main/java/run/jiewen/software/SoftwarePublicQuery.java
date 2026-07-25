@@ -89,7 +89,9 @@ public class SoftwarePublicQuery extends SortableRequest {
             query = and(query, equal("spec.tagNames", getTag()));
         }
         if (hasText(getPlatform())) {
-            query = and(query, equal("spec.platform", getPlatform()));
+            query = and(query, run.halo.app.extension.index.query.Queries.or(
+                equal("spec.platforms", getPlatform()),
+                equal("spec.platform", getPlatform())));
         }
         if (hasText(getFeatured())) {
             query = and(query, equal("spec.featured", Boolean.parseBoolean(getFeatured())));

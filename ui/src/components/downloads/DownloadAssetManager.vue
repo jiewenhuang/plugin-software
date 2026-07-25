@@ -19,7 +19,7 @@ import {
   VSpace,
 } from '@halo-dev/components'
 import { computed, ref, watch } from 'vue'
-import type { DownloadAsset, SoftwareApp } from '@/api/software'
+import type { DownloadAsset, DownloadAssetStats, SoftwareApp } from '@/api/software'
 import {
   defaultSoftwareOptions,
   ensureCurrentOption,
@@ -35,14 +35,13 @@ import ConsoleStatsGrid from '@/components/console/ConsoleStatsGrid.vue'
 import ConsoleTableCard from '@/components/console/ConsoleTableCard.vue'
 import ConsoleTextButton from '@/components/console/ConsoleTextButton.vue'
 import ConsoleToolbar from '@/components/console/ConsoleToolbar.vue'
+import { useDebouncedValue } from '@/composables/useDebouncedValue'
 import {
   buildDownloadAssetRows,
   buildDownloadAssetStats,
-  buildDownloadSourceInsights,
   filterDownloadAssetRows,
   formatAssetDate,
   formatDownloadNumber,
-  linkFingerprintCells,
   sortDownloadAssetRows,
   type DownloadAssetRow,
   type DownloadAssetSortKey,
@@ -56,6 +55,9 @@ const props = defineProps<{
   loading: boolean
   deletingName: string
   togglingName: string
+  total?: number
+  stats?: DownloadAssetStats
+  remote?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -67,11 +69,21 @@ const emit = defineEmits<{
   create: [appName?: string]
   'selection-change': [selection: { count: number; names: string[]; titles: string[] }]
   'batch-delete': []
+  'query-change': [query: {
+    page: number
+    size: number
+    keyword: string
+    appName: string
+    type: string
+    status: DownloadAssetStatusFilter
+    sort: DownloadAssetSortKey
+  }]
 }>()
 
 const page = ref(1)
 const size = ref(20)
 const keyword = ref('')
+const debouncedKeyword = useDebouncedValue(keyword)
 const selectedAppName = ref('')
 const selectedType = ref('')
 const selectedStatus = ref<DownloadAssetStatusFilter>('')
@@ -93,7 +105,13 @@ const sortOptions: FilterSelectOption[] = [
 
 const optionSettings = computed(() => props.options || defaultSoftwareOptions)
 const rows = computed(() => buildDownloadAssetRows(props.assets, props.apps, optionSettings.value))
-const stats = computed(() => buildDownloadAssetStats(props.assets))
+const pageStats = computed(() => buildDownloadAssetStats(props.assets))
+const stats = computed<DownloadAssetStats>(() =>
+  props.stats || {
+    ...pageStats.value,
+    protectedCount: pageStats.value.protected,
+  },
+)
 const appFilterOptions = computed<FilterSelectOption[]>(() => [
   { label: '全部软件', value: '' },
   ...props.apps.map((app) => ({
@@ -110,20 +128,28 @@ const typeFilterOptions = computed<FilterSelectOption[]>(() => [
   ),
 ])
 const filteredRows = computed(() =>
-  sortDownloadAssetRows(
-    filterDownloadAssetRows(rows.value, {
-      keyword: keyword.value,
-      appName: selectedAppName.value,
-      type: selectedType.value,
-      status: selectedStatus.value,
-    }),
-    selectedSort.value,
-  ),
+  props.remote
+    ? rows.value
+    : sortDownloadAssetRows(
+        filterDownloadAssetRows(rows.value, {
+          keyword: keyword.value,
+          appName: selectedAppName.value,
+          type: selectedType.value,
+          status: selectedStatus.value,
+        }),
+        selectedSort.value,
+      ),
 )
 const pagedRows = computed(() => {
+  if (props.remote) {
+    return filteredRows.value
+  }
   const start = (page.value - 1) * size.value
   return filteredRows.value.slice(start, start + size.value)
 })
+const effectiveTotal = computed(() =>
+  props.remote ? props.total || 0 : filteredRows.value.length,
+)
 const selectedRow = computed(() => {
   if (!selectedRowName.value) {
     return undefined
@@ -131,8 +157,6 @@ const selectedRow = computed(() => {
   return rows.value.find((row) => row.name === selectedRowName.value)
 })
 const selectedAsset = computed(() => selectedRow.value?.source)
-const selectedCells = computed(() => linkFingerprintCells(selectedRow.value?.url || selectedRow.value?.name || ''))
-const selectedInsights = computed(() => buildDownloadSourceInsights(selectedAsset.value))
 const hasFilters = computed(() =>
   Boolean(keyword.value || selectedAppName.value || selectedType.value || selectedStatus.value),
 )
@@ -195,8 +219,32 @@ function selectedAssetTitles() {
   return selectedNames.value.map((name) => titleByName.get(name) || name)
 }
 
-watch([keyword, selectedAppName, selectedType, selectedStatus, selectedSort, size], () => {
+watch([debouncedKeyword, selectedAppName, selectedType, selectedStatus, selectedSort, size], () => {
   page.value = 1
+})
+
+watch(
+  [page, size, debouncedKeyword, selectedAppName, selectedType, selectedStatus, selectedSort],
+  () => {
+    if (props.remote) {
+      emit('query-change', {
+        page: page.value,
+        size: size.value,
+        keyword: debouncedKeyword.value,
+        appName: selectedAppName.value,
+        type: selectedType.value,
+        status: selectedStatus.value,
+        sort: selectedSort.value,
+      })
+    }
+  },
+)
+
+watch(effectiveTotal, (value) => {
+  const lastPage = Math.max(1, Math.ceil(value / size.value))
+  if (page.value > lastPage) {
+    page.value = lastPage
+  }
 })
 
 watch(
@@ -235,7 +283,7 @@ defineExpose({
         tone="mint"
         label="总链接数"
         :value="formatDownloadNumber(stats.total)"
-        :meta="`当前筛选 ${formatDownloadNumber(filteredRows.length)}`"
+        :meta="remote ? `当前页 ${formatDownloadNumber(rows.length)}` : `当前筛选 ${formatDownloadNumber(filteredRows.length)}`"
       >
         <template #icon>
           <IconLink />
@@ -353,9 +401,9 @@ defineExpose({
             <tbody>
               <tr v-if="!filteredRows.length" class="download-empty-row">
                 <td colspan="9">
-                  <VEmpty :title="rows.length ? '没有匹配的下载链接' : '暂无下载链接'">
+                  <VEmpty :title="effectiveTotal ? '没有匹配的下载链接' : '暂无下载链接'">
                     <template #actions>
-                      <VButton v-if="rows.length" @click="clearFilters">重置筛选</VButton>
+                      <VButton v-if="effectiveTotal" @click="clearFilters">重置筛选</VButton>
                       <VButton
                         v-else
                         class="download-primary-action"
@@ -479,13 +527,13 @@ defineExpose({
           </table>
         </div>
 
-        <template v-if="rows.length" #footer>
+        <template v-if="effectiveTotal" #footer>
           <div class="download-pagination">
-            <span>共 {{ formatDownloadNumber(filteredRows.length) }} 条</span>
+            <span>共 {{ formatDownloadNumber(effectiveTotal) }} 条</span>
             <VPagination
               v-model:page="page"
               v-model:size="size"
-              :total="filteredRows.length"
+              :total="effectiveTotal"
               :size-options="[10, 20, 50]"
           />
         </div>
@@ -527,49 +575,11 @@ defineExpose({
         </div>
 
         <div class="detail-block">
-          <small>短链地址</small>
-          <div class="detail-copy-row">
-            <span>{{ selectedRow.url ? selectedRow.url.replace(/^https?:\/\//, '') : '未设置' }}</span>
-            <button
-              type="button"
-              title="复制短链"
-              aria-label="复制短链"
-              @click="emit('copy', selectedRow.source)"
-            >
-              <IconClipboardLine />
-            </button>
-          </div>
-        </div>
-
-        <div class="qr-block">
-          <small>链接指纹</small>
-          <div class="qr-preview" aria-label="链接指纹">
-            <span
-              v-for="(cell, index) in selectedCells"
-              :key="index"
-              :class="{ filled: cell }"
-            ></span>
-          </div>
-          <p>用于快速辨认当前链接</p>
-        </div>
-
-        <div class="detail-block">
           <small>访问保护</small>
           <div class="detail-line">
             <IconShieldUser />
             <span>{{ selectedRow.protectionText }}</span>
           </div>
-        </div>
-
-        <div class="detail-block">
-          <small>最近点击来源</small>
-          <div v-if="selectedInsights.length" class="source-list">
-            <div v-for="item in selectedInsights" :key="item.label">
-              <span>{{ item.label }}</span>
-              <strong>{{ formatDownloadNumber(item.value) }}</strong>
-            </div>
-          </div>
-          <p v-else class="detail-muted">暂无来源数据</p>
         </div>
 
         <div class="detail-block two-col">
@@ -989,8 +999,7 @@ defineExpose({
 }
 
 .detail-heading span,
-.detail-muted,
-.qr-block p {
+.detail-muted {
   color: var(--download-muted);
   font-size: 12px;
 }
@@ -999,15 +1008,13 @@ defineExpose({
   margin-top: 12px;
 }
 
-.detail-block,
-.qr-block {
+.detail-block {
   border-top: 1px solid var(--download-soft-line);
   margin-top: 16px;
   padding-top: 14px;
 }
 
-.detail-block small,
-.qr-block small {
+.detail-block small {
   display: block;
   margin-bottom: 8px;
   color: #46566d;
@@ -1051,53 +1058,9 @@ defineExpose({
   color: var(--download-accent);
 }
 
-.qr-preview {
-  display: grid;
-  grid-template-columns: repeat(9, 1fr);
-  gap: 2px;
-  width: 82px;
-  height: 82px;
-  border: 1px solid #dbe3ee;
-  border-radius: 8px;
-  padding: 7px;
-  background: #fff;
-}
-
-.qr-preview span {
-  border-radius: 1px;
-  background: transparent;
-}
-
-.qr-preview span.filled {
-  background: #151f2f;
-}
-
-.qr-block p {
-  margin: 8px 0 0;
-}
-
 .detail-line {
   color: #4d5f78;
   font-size: 13px;
-}
-
-.source-list {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.source-list div {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  color: #56667f;
-  font-size: 12px;
-}
-
-.source-list strong {
-  color: #2d3b51;
 }
 
 .two-col {

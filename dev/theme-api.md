@@ -119,7 +119,7 @@
 | `_templateId` | `String`              | 固定为 `software-detail`             |
 | `software`    | `SoftwareAppDetailVo` | 已发布软件、版本和安全的下载源元数据 |
 
-`software.description` 在进入公共 VO 前经过 HTML 净化。`software.downloadAssets` 只包含已启用下载源，并按优先级升序；其中 `url` 固定为空，主题必须通过下载门禁 REST API 获取最终地址。
+`software.description` 在进入公共 VO 前经过 HTML 净化。`software.downloadAssets` 只包含已启用下载源，并按优先级升序；其中 `url` 固定为空，主题必须通过下载授权 REST API 获取最终地址。`relatedApps` 只包含已发布软件，`relatedPosts` 只包含公开且已发布的 Halo 文章，文章摘要同样经过 HTML 净化。
 
 ```html
 <article>
@@ -129,6 +129,19 @@
     <a th:each="version : ${software.versions}" th:text="${version.version}">1.0.0</a>
 </article>
 ```
+
+### 下载授权与 Turnstile
+
+主题不得从详情 VO、Console API 或原始 Extension 读取下载敏感字段。推荐流程：
+
+1. 调用 `GET /apis/api.software.jiewen.run/v1alpha1/download-options` 获取 `captchaProvider`、`captchaSiteKey` 和 `captchaConfigured`；
+2. 当下载源的 `requiresCaptcha=true` 时，用公开 Site Key 渲染 Cloudflare Turnstile；
+3. 把 token 与软件 slug、可选下载源 name 一起提交到 `POST /apis/api.software.jiewen.run/v1alpha1/download-grants`；
+4. 只在成功响应后展示或跳转 `url`，并按需显示 `extractionCode` / `password`。
+
+Site Key 也可在服务端模板中通过 `${softwareFinder.getDownloadSecurityOptions()}` 取得。`captchaConfigured=false` 时主题应禁用受验证码保护的下载操作并提示管理员检查插件设置，不能回退为绕过验证。
+
+完整请求、状态码、缓存头和 60 秒授权决策有效期见 [REST API 文档](./rest-api.md#下载门禁)。
 
 ## `software-special.html`
 
@@ -166,6 +179,7 @@ Finder 名称为 `softwareFinder`。以下方法构成面向主题的稳定 Find
 | `getCategoryBySlug(String slug)`    | `SoftwareCategoryVo`          | 按 slug 获取可见分类                                           |
 | `getTagBySlug(String slug)`         | `SoftwareTagVo`               | 按 slug 获取可见标签                                           |
 | `getTopicDetailBySlug(String slug)` | `SoftwareTopicDetailVo`       | 按 slug 获取已发布专题及软件                                   |
+| `getDownloadSecurityOptions()`      | `DownloadSecurityVo`          | 公开验证码 provider、Site Key 与配置状态；不含 Secret 元数据   |
 
 `ListOptions`、`PageRequest` 和下载源查询等 Java 服务方法属于 Endpoint 内部查询能力，不作为推荐的 Thymeleaf Finder 接口。主题获取最终下载 URL 时应使用 [REST API 文档](./rest-api.md) 中的下载门禁端点。
 
@@ -215,7 +229,7 @@ Finder 名称为 `softwareFinder`。以下方法构成面向主题的稳定 Find
 | 最新版本   | `latestVersion`, `latestVersionName`, `latestReleaseDate`, `minOsVersion`, `sizeBytes`                                                                                                   |
 | 统计       | `downloadCount`, `likeCount`, `commentCount`                                                                                                                                             |
 | 展示格式   | `downloadCountText`, `likeCountText`, `commentCountText`, `sizeText`, `sizeValue`, `sizeUnit`, `minOsDisplay`, `latestReleaseDateText`, `latestReleaseDateShort`, `latestReleaseWeekday` |
-| 平台信息   | `platform`, `architectures`, `licenseType`, `locale`, `localeValue`, `localeUnit`, `localeLabel`                                                                                         |
+| 平台信息   | `platform`（兼容字段）, `platforms`, `architectures`, `licenseType`, `locale`, `localeValue`, `localeUnit`, `localeLabel`                                                               |
 | 发布信息   | `featured`, `recommended`, `publishedAt`, `seo`                                                                                                                                          |
 
 `name` 是 `SoftwareApp.metadata.name`，`slug` 是公开路径标识，两者不能混用。评论资源和 Extension 引用使用 `name`；页面 URL 使用 `slug` 或 `permalink`。
@@ -224,13 +238,15 @@ Finder 名称为 `softwareFinder`。以下方法构成面向主题的稳定 Find
 
 | 类型                    | 关键字段与说明                                                                                                                                                                                                                                  |
 | ----------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `SoftwareAppDetailVo`   | 包含 `SoftwareAppVo` 的全部字段，并增加 `versions`、`downloadAssets`                                                                                                                                                                            |
+| `SoftwareAppDetailVo`   | 包含 `SoftwareAppVo` 的全部字段，并增加 `versions`、`downloadAssets`、`relatedApps`、`relatedPosts`                                                                                                                                              |
 | `SoftwareCategoryVo`    | `name`, `slug`, `displayName`, `parentName`, `description`, `icon`, `priority`, `appCount`, `children`                                                                                                                                          |
 | `SoftwareTagVo`         | `name`, `slug`, `displayName`, `description`, `color`, `priority`, `appCount`                                                                                                                                                                   |
-| `SoftwareTopicVo`       | `name`, `slug`, `title`, `subtitle`, `description`, `cover`, `items`, `featured`, `priority`, `appCount`                                                                                                                                        |
+| `SoftwareTopicVo`       | `name`, `slug`, `title`, `subtitle`, `description`, `cover`, `items`, `featured`, `priority`, `appCount`；公开 `items` 只含 slug、展示字段、reason 和 priority，不含内部 app name                                                            |
 | `SoftwareTopicDetailVo` | 包含 `SoftwareTopicVo` 的字段，并增加 `apps`                                                                                                                                                                                                    |
-| `SoftwareVersionVo`     | `name`, `version`, `build`, `releaseDate`, `sizeBytes`, `minOsVersion`, `maxOsVersion`, `architectures`, `locale`, `changelog`, `installGuide`, `installWarnings`, `status`, `assetCount`, `downloadCount`, `primaryAssetName` 以及展示格式字段 |
+| `SoftwareVersionVo`     | `name`, `version`, `build`, `releaseDate`, `sizeBytes`, `minOsVersion`, `maxOsVersion`, `architectures`, `locale`, `changelog`, `installGuide`, `installWarnings`, `sha256`, `md5`, `status`, `assetCount`, `downloadCount`, `primaryAssetName` 以及展示格式字段 |
 | `DownloadAssetVo`       | `name`, `versionName`, `title`, `type`, `provider`, `url`, `requiresLogin`, `requiresCaptcha`, `region`, `priority`, `downloadCount`                                                                                                            |
+| `DownloadSecurityVo`    | `captchaProvider`, `captchaSiteKey`, `captchaConfigured`；不包含 Secret 名称、数据键或 Secret 值                                                                                                                                                  |
+| `DownloadGrantVo`       | 授权成功后短期返回 `assetName`, `versionName`, `title`, `url`, `extractionCode`, `password`, `expiresAt`；只通过不可缓存 REST 响应取得                                                                                                            |
 | `SoftwareSeoVo`         | `title`, `description`, `keywords`                                                                                                                                                                                                              |
 
 公共 VO 不包含 `storageKey`、提取码、密码 Secret 或其他 Console 私有字段。普通详情中的 `DownloadAssetVo.url` 为 `null`。

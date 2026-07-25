@@ -22,6 +22,7 @@ public class SoftwareVersion extends AbstractExtension {
     private Status status;
 
     @Data
+    @Schema(name = "SoftwareVersionSpec")
     public static class Spec {
 
         @Schema(requiredMode = REQUIRED, description = "SoftwareApp metadata.name.")
@@ -56,6 +57,7 @@ public class SoftwareVersion extends AbstractExtension {
     }
 
     @Data
+    @Schema(name = "SoftwareVersionChecksum")
     public static class Checksum {
 
         private String sha256;
@@ -64,6 +66,7 @@ public class SoftwareVersion extends AbstractExtension {
     }
 
     @Data
+    @Schema(name = "SoftwareVersionStatus")
     public static class Status {
 
         private Integer assetCount;
@@ -71,5 +74,9 @@ public class SoftwareVersion extends AbstractExtension {
         private Long downloadCount;
 
         private String primaryAssetName;
+
+        private String observedAppName;
+
+        private Long observedVersion;
     }
 }

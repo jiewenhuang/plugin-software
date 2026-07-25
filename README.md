@@ -36,12 +36,12 @@ Software Manager 为 Halo 提供完整的软件领域模型、Console 管理界�
 | ------------ | -------------------------------------------------------------- |
 | 软件内容管理 | 软件基础信息、平台、架构、图标、截图、详情、SEO 与关联内容     |
 | 版本管理     | 版本号、发布日期、系统要求、架构、语言、更新日志和校验值       |
-| 下载源管理   | 下载类型、来源、区域、优先级、登录要求和敏感字段隔离           |
+| 下载源管理   | 下载类型、来源、优先级、登录/Turnstile 门禁和敏感字段隔离      |
 | 内容组织     | 多级分类、标签、专题、推荐、精选和发布状态                     |
 | Console UI   | 软件列表与编辑器，以及分类、标签、专题和下载源管理页面         |
 | 公共查询     | `softwareFinder`、主题 Router 和版本化 REST API                |
 | 评论集成     | 将 `SoftwareApp` 注册为 Halo 评论资源，并提供 Console 资源引用 |
-| 权限与安全   | 查看/管理角色、匿名公共 API、HTML 净化和下载 URL 门禁          |
+| 权限与安全   | 查看/管理/敏感配置分权、HTML 净化、目标白名单和短期下载授权     |
 | 可选 AI      | 通过 AI Foundation 为摘要、详情和 SEO 提供编辑建议             |
 
 ## 领域模型
@@ -73,10 +73,20 @@ Software Manager 为 Halo 提供完整的软件领域模型、Console 管理界�
 1. 从 [GitHub Releases](https://github.com/jiewenhuang/plugin-software/releases) 下载插件 JAR。
 2. 在 Halo Console 的“插件”页面上传并启用。
 3. 使用管理员账号进入“软件”菜单，配置分类、标签、专题和下载源。
-4. 非管理员账号按需授予“软件查看”或“软件管理”角色模板。
+4. 非管理员账号按需授予“软件查看”或“软件管理”角色模板；只有确需查看 URL、提取码等字段的账号再授予“软件敏感下载配置”。
 5. 如需 AI 编辑建议，再安装并启用兼容版本的 AI Foundation。
 
 推荐先配置选项、分类、标签和专题，再创建软件、版本与下载源，最后检查公开详情并发布。
+
+### 下载安全配置
+
+下载源的 URL、`storageKey`、提取码和密码 Secret 引用只通过独立的 Console Secret API 读写，普通“软件查看/管理”角色无法读取。需要验证码时：
+
+1. 在 Halo 中创建 Secret，并把 Turnstile Secret Key 放在 `data.secret`（数据键可配置）；
+2. 在插件“下载安全”设置填写 Turnstile Site Key、Halo Secret 名称和数据键；
+3. 主题通过公开的 `download-options` 获取 Site Key，再将 Turnstile token 提交给 `download-grants`。
+
+验证码服务异常、Secret 缺失或目标 URL 不安全时下载授权会 fail-closed。插件只允许 HTTP(S) 或安全的站内绝对路径，并为敏感响应设置 `no-store`。
 
 ## 插件与主题的边界
 
@@ -130,7 +140,7 @@ README 只提供项目入口；上述文档是相应公共契约的详细来源�
 /apis/api.software.jiewen.run/v1alpha1
 ```
 
-公共 API 提供软件、分类、标签、专题和下载门禁查询。普通软件详情不会暴露最终下载 URL、`storageKey`、提取码或密码 Secret；最终 URL 只能通过下载门禁端点取得。
+公共 API 提供软件、分类、标签、专题和下载门禁查询。普通软件详情不会暴露最终下载 URL、`storageKey`、提取码或密码 Secret；新客户端通过 `POST /download-grants` 获取短期授权，通过 `GET /download-options` 获取安全公开的 Turnstile 启动配置。
 
 Console API、分页筛选、错误状态、AI Endpoint 和 RBAC 说明见 [REST API 文档](./dev/rest-api.md)。
 
@@ -144,7 +154,7 @@ kind: SoftwareApp
 name: <SoftwareApp.metadata.name>
 ```
 
-插件注册“软件查看”“软件管理”和匿名公共 API 三类角色。主题不得通过 Console API 或原始 Extension 绕过公共 VO 和下载门禁。
+插件注册“软件查看”“软件管理”“软件敏感下载配置”和匿名公共 API 四类角色。主题不得通过 Console API 或原始 Extension 绕过公共 VO 和下载门禁。
 
 ## 可选 AI 集成
 
@@ -164,6 +174,9 @@ plugin-software/
 ├── dev/                              # 开发、主题 API 与 REST API 文档
 ├── src/main/java/run/jiewen/software/
 │   ├── extension/                    # 六类领域 Extension
+│   ├── api/                          # 写入 Command 与下载授权请求
+│   ├── download/                     # Turnstile 与下载目标安全策略
+│   ├── reconciler/                   # 聚合状态、计数和兼容迁移
 │   ├── finders/                      # Console 与公共查询服务
 │   ├── vo/                           # Public、Finder 与 Console VO
 │   ├── comment/                      # SoftwareApp 评论资源
@@ -172,7 +185,8 @@ plugin-software/
 │   └── *Endpoint.java                # Console 与公共 REST API
 ├── src/main/resources/               # 插件清单、设置、RBAC 与 Logo
 ├── src/test/                         # Java 单元与契约测试
-├── ui/                               # Vue Console UI 与测试
+├── api-docs/                         # 生成的 OpenAPI JSON
+├── ui/                               # Vue Console UI、生成 API Client 与测试
 ├── build.gradle
 └── settings.gradle
 ```
@@ -183,6 +197,12 @@ plugin-software/
 
 ```bash
 ./gradlew build
+```
+
+更新 OpenAPI 与 TypeScript Client：
+
+```bash
+./gradlew generateApiClient --no-daemon
 ```
 
 Halo DevTools：

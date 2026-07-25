@@ -36,6 +36,10 @@ public class SoftwareVersionVo {
 
     List<String> installWarnings;
 
+    String sha256;
+
+    String md5;
+
     String status;
 
     Integer assetCount;
@@ -69,6 +73,10 @@ public class SoftwareVersionVo {
             .changelog(spec == null ? null : spec.getChangelog())
             .installGuide(spec == null ? null : spec.getInstallGuide())
             .installWarnings(spec == null ? null : spec.getInstallWarnings())
+            .sha256(spec == null || spec.getChecksum() == null
+                ? null : spec.getChecksum().getSha256())
+            .md5(spec == null || spec.getChecksum() == null
+                ? null : spec.getChecksum().getMd5())
             .status(spec == null ? null : spec.getStatus())
             .assetCount(status == null ? null : status.getAssetCount())
             .downloadCount(status == null ? null : status.getDownloadCount())

@@ -1,0 +1,5441 @@
+{
+  "openapi" : "3.0.1",
+  "info" : {
+    "title" : "Halo",
+    "version" : "2.25.2"
+  },
+  "servers" : [ {
+    "url" : "http://localhost:59349",
+    "description" : "Generated server url"
+  } ],
+  "security" : [ {
+    "basicAuth" : [ ],
+    "bearerAuth" : [ ]
+  } ],
+  "paths" : {
+    "/apis/api.software.jiewen.run/v1alpha1/apps" : {
+      "get" : {
+        "description" : "List published software apps.",
+        "operationId" : "querySoftwareApps",
+        "parameters" : [ {
+          "description" : "Page number. Default is 0.",
+          "in" : "query",
+          "name" : "page",
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        }, {
+          "description" : "Size number. Default is 0.",
+          "in" : "query",
+          "name" : "size",
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        }, {
+          "description" : "Label selector. e.g.: hidden!=true",
+          "in" : "query",
+          "name" : "labelSelector",
+          "schema" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          }
+        }, {
+          "description" : "Field selector. e.g.: metadata.name==halo",
+          "in" : "query",
+          "name" : "fieldSelector",
+          "schema" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          }
+        }, {
+          "description" : "Sort criteria: field,(asc|desc).",
+          "in" : "query",
+          "name" : "sort",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Software display name keyword.",
+          "in" : "query",
+          "name" : "keyword",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Software category metadata.name.",
+          "in" : "query",
+          "name" : "category",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Software tag metadata.name.",
+          "in" : "query",
+          "name" : "tag",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Software platform.",
+          "in" : "query",
+          "name" : "platform",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Whether the software is featured.",
+          "in" : "query",
+          "name" : "featured",
+          "schema" : {
+            "type" : "boolean"
+          }
+        }, {
+          "description" : "Whether the software is recommended.",
+          "in" : "query",
+          "name" : "recommended",
+          "schema" : {
+            "type" : "boolean"
+          }
+        } ],
+        "responses" : {
+          "default" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SoftwareAppVoList"
+                }
+              }
+            },
+            "description" : "default response"
+          }
+        },
+        "tags" : [ "api.software.jiewen.run/v1alpha1/SoftwareApp" ]
+      }
+    },
+    "/apis/api.software.jiewen.run/v1alpha1/apps/{slug}" : {
+      "get" : {
+        "description" : "Get a published software app by public slug.",
+        "operationId" : "querySoftwareAppBySlug",
+        "parameters" : [ {
+          "description" : "Software app public slug.",
+          "in" : "path",
+          "name" : "slug",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "default" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SoftwareAppDetailVo"
+                }
+              }
+            },
+            "description" : "default response"
+          }
+        },
+        "tags" : [ "api.software.jiewen.run/v1alpha1/SoftwareApp" ]
+      }
+    },
+    "/apis/api.software.jiewen.run/v1alpha1/apps/{slug}/download" : {
+      "get" : {
+        "description" : "Get an enabled download asset for a published software app.",
+        "operationId" : "querySoftwareAppDownloadAsset",
+        "parameters" : [ {
+          "description" : "Software app public slug.",
+          "in" : "path",
+          "name" : "slug",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Optional DownloadAsset metadata.name.",
+          "in" : "query",
+          "name" : "asset",
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "default" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/DownloadAssetVo"
+                }
+              }
+            },
+            "description" : "default response"
+          }
+        },
+        "tags" : [ "api.software.jiewen.run/v1alpha1/SoftwareApp" ]
+      }
+    },
+    "/apis/api.software.jiewen.run/v1alpha1/categories" : {
+      "get" : {
+        "description" : "List visible software categories.",
+        "operationId" : "querySoftwareCategories",
+        "responses" : {
+          "default" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SoftwareCategoryVoList"
+                }
+              }
+            },
+            "description" : "default response"
+          }
+        },
+        "tags" : [ "api.software.jiewen.run/v1alpha1/SoftwareCategory" ]
+      }
+    },
+    "/apis/api.software.jiewen.run/v1alpha1/download-grants" : {
+      "post" : {
+        "description" : "Validate all gates and issue a short-lived, non-cacheable download grant.",
+        "operationId" : "createSoftwareDownloadGrant",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/DownloadGrantRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "default" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/DownloadGrantVo"
+                }
+              }
+            },
+            "description" : "default response"
+          }
+        },
+        "tags" : [ "api.software.jiewen.run/v1alpha1/SoftwareApp" ]
+      }
+    },
+    "/apis/api.software.jiewen.run/v1alpha1/download-options" : {
+      "get" : {
+        "description" : "Get public captcha bootstrap options without Secret metadata.",
+        "operationId" : "getSoftwareDownloadOptions",
+        "responses" : {
+          "default" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/DownloadSecurityVo"
+                }
+              }
+            },
+            "description" : "default response"
+          }
+        },
+        "tags" : [ "api.software.jiewen.run/v1alpha1/SoftwareApp" ]
+      }
+    },
+    "/apis/api.software.jiewen.run/v1alpha1/tags" : {
+      "get" : {
+        "description" : "List visible software tags.",
+        "operationId" : "querySoftwareTags",
+        "responses" : {
+          "default" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SoftwareTagVoList"
+                }
+              }
+            },
+            "description" : "default response"
+          }
+        },
+        "tags" : [ "api.software.jiewen.run/v1alpha1/SoftwareTag" ]
+      }
+    },
+    "/apis/api.software.jiewen.run/v1alpha1/topics" : {
+      "get" : {
+        "description" : "List published software topics.",
+        "operationId" : "querySoftwareTopics",
+        "responses" : {
+          "default" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SoftwareTopicVoList"
+                }
+              }
+            },
+            "description" : "default response"
+          }
+        },
+        "tags" : [ "api.software.jiewen.run/v1alpha1/SoftwareTopic" ]
+      }
+    },
+    "/apis/api.software.jiewen.run/v1alpha1/topics/{slug}" : {
+      "get" : {
+        "description" : "Get a published software topic with its published software apps.",
+        "operationId" : "querySoftwareTopicBySlug",
+        "parameters" : [ {
+          "description" : "Software topic public slug.",
+          "in" : "path",
+          "name" : "slug",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "default" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SoftwareTopicDetailVo"
+                }
+              }
+            },
+            "description" : "default response"
+          }
+        },
+        "tags" : [ "api.software.jiewen.run/v1alpha1/SoftwareTopic" ]
+      }
+    },
+    "/apis/console.api.software.jiewen.run/v1alpha1/apps" : {
+      "get" : {
+        "description" : "List software apps for Console.",
+        "operationId" : "ListSoftwareApps",
+        "parameters" : [ {
+          "description" : "Page number. Default is 0.",
+          "in" : "query",
+          "name" : "page",
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        }, {
+          "description" : "Size number. Default is 0.",
+          "in" : "query",
+          "name" : "size",
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        }, {
+          "description" : "Label selector. e.g.: hidden!=true",
+          "in" : "query",
+          "name" : "labelSelector",
+          "schema" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          }
+        }, {
+          "description" : "Field selector. e.g.: metadata.name==halo",
+          "in" : "query",
+          "name" : "fieldSelector",
+          "schema" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          }
+        }, {
+          "description" : "Sorting criteria in the format: property,(asc|desc). Default sort order is ascending. Multiple sort criteria are supported.",
+          "in" : "query",
+          "name" : "sort",
+          "schema" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          }
+        }, {
+          "description" : "Software display-name or slug keyword.",
+          "in" : "query",
+          "name" : "keyword",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Published state.",
+          "in" : "query",
+          "name" : "published",
+          "schema" : {
+            "type" : "boolean"
+          }
+        }, {
+          "description" : "Category metadata.name.",
+          "in" : "query",
+          "name" : "category",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Normalized platform value.",
+          "in" : "query",
+          "name" : "platform",
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "default" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SoftwareAppList"
+                }
+              }
+            },
+            "description" : "default response"
+          }
+        },
+        "tags" : [ "console.api.software.jiewen.run/v1alpha1/SoftwareApp" ]
+      },
+      "post" : {
+        "operationId" : "CreateSoftwareApp",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/SoftwareAppCommand"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "default" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SoftwareApp"
+                }
+              }
+            },
+            "description" : "default response"
+          }
+        },
+        "tags" : [ "console.api.software.jiewen.run/v1alpha1/SoftwareApp" ]
+      }
+    },
+    "/apis/console.api.software.jiewen.run/v1alpha1/apps/stats" : {
+      "get" : {
+        "description" : "Get software app stats and list facets for Console.",
+        "operationId" : "GetSoftwareAppStats",
+        "responses" : {
+          "default" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SoftwareConsoleStatsVo"
+                }
+              }
+            },
+            "description" : "default response"
+          }
+        },
+        "tags" : [ "console.api.software.jiewen.run/v1alpha1/SoftwareApp" ]
+      }
+    },
+    "/apis/console.api.software.jiewen.run/v1alpha1/apps/{name}" : {
+      "delete" : {
+        "operationId" : "DeleteSoftwareApp",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "name",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "default" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SoftwareApp"
+                }
+              }
+            },
+            "description" : "default response"
+          }
+        },
+        "tags" : [ "console.api.software.jiewen.run/v1alpha1/SoftwareApp" ]
+      },
+      "get" : {
+        "operationId" : "GetSoftwareApp",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "name",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "default" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SoftwareApp"
+                }
+              }
+            },
+            "description" : "default response"
+          }
+        },
+        "tags" : [ "console.api.software.jiewen.run/v1alpha1/SoftwareApp" ]
+      },
+      "patch" : {
+        "operationId" : "PatchSoftwareApp",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "name",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/SoftwareAppCommand"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "default" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SoftwareApp"
+                }
+              }
+            },
+            "description" : "default response"
+          }
+        },
+        "tags" : [ "console.api.software.jiewen.run/v1alpha1/SoftwareApp" ]
+      },
+      "put" : {
+        "operationId" : "UpdateSoftwareApp",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "name",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/SoftwareAppCommand"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "default" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SoftwareApp"
+                }
+              }
+            },
+            "description" : "default response"
+          }
+        },
+        "tags" : [ "console.api.software.jiewen.run/v1alpha1/SoftwareApp" ]
+      }
+    },
+    "/apis/console.api.software.jiewen.run/v1alpha1/categories" : {
+      "get" : {
+        "description" : "List software categories for Console.",
+        "operationId" : "ListSoftwareCategories",
+        "parameters" : [ {
+          "description" : "Page number. Default is 0.",
+          "in" : "query",
+          "name" : "page",
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        }, {
+          "description" : "Size number. Default is 0.",
+          "in" : "query",
+          "name" : "size",
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        }, {
+          "description" : "Label selector. e.g.: hidden!=true",
+          "in" : "query",
+          "name" : "labelSelector",
+          "schema" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          }
+        }, {
+          "description" : "Field selector. e.g.: metadata.name==halo",
+          "in" : "query",
+          "name" : "fieldSelector",
+          "schema" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          }
+        }, {
+          "description" : "Sorting criteria in the format: property,(asc|desc). Default sort order is ascending. Multiple sort criteria are supported.",
+          "in" : "query",
+          "name" : "sort",
+          "schema" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          }
+        }, {
+          "description" : "Category display-name or slug keyword.",
+          "in" : "query",
+          "name" : "keyword",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Visible state.",
+          "in" : "query",
+          "name" : "visible",
+          "schema" : {
+            "type" : "boolean"
+          }
+        }, {
+          "description" : "SoftwareCategory parent metadata.name.",
+          "in" : "query",
+          "name" : "parentName",
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "default" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SoftwareCategoryList"
+                }
+              }
+            },
+            "description" : "default response"
+          }
+        },
+        "tags" : [ "console.api.software.jiewen.run/v1alpha1/SoftwareCategory" ]
+      },
+      "post" : {
+        "operationId" : "CreateSoftwareCategory",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/SoftwareCategoryCommand"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "default" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SoftwareCategory"
+                }
+              }
+            },
+            "description" : "default response"
+          }
+        },
+        "tags" : [ "console.api.software.jiewen.run/v1alpha1/SoftwareCategory" ]
+      }
+    },
+    "/apis/console.api.software.jiewen.run/v1alpha1/categories/{name}" : {
+      "delete" : {
+        "operationId" : "DeleteSoftwareCategory",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "name",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "default" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SoftwareCategory"
+                }
+              }
+            },
+            "description" : "default response"
+          }
+        },
+        "tags" : [ "console.api.software.jiewen.run/v1alpha1/SoftwareCategory" ]
+      },
+      "patch" : {
+        "operationId" : "PatchSoftwareCategory",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "name",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/SoftwareCategoryCommand"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "default" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SoftwareCategory"
+                }
+              }
+            },
+            "description" : "default response"
+          }
+        },
+        "tags" : [ "console.api.software.jiewen.run/v1alpha1/SoftwareCategory" ]
+      },
+      "put" : {
+        "operationId" : "UpdateSoftwareCategory",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "name",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/SoftwareCategoryCommand"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "default" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SoftwareCategory"
+                }
+              }
+            },
+            "description" : "default response"
+          }
+        },
+        "tags" : [ "console.api.software.jiewen.run/v1alpha1/SoftwareCategory" ]
+      }
+    },
+    "/apis/console.api.software.jiewen.run/v1alpha1/download-assets" : {
+      "get" : {
+        "description" : "List secret-free download assets for Console.",
+        "operationId" : "ListDownloadAssets",
+        "parameters" : [ {
+          "description" : "Page number. Default is 0.",
+          "in" : "query",
+          "name" : "page",
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        }, {
+          "description" : "Size number. Default is 0.",
+          "in" : "query",
+          "name" : "size",
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        }, {
+          "description" : "Label selector. e.g.: hidden!=true",
+          "in" : "query",
+          "name" : "labelSelector",
+          "schema" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          }
+        }, {
+          "description" : "Field selector. e.g.: metadata.name==halo",
+          "in" : "query",
+          "name" : "fieldSelector",
+          "schema" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          }
+        }, {
+          "description" : "Sorting criteria in the format: property,(asc|desc). Default sort order is ascending. Multiple sort criteria are supported.",
+          "in" : "query",
+          "name" : "sort",
+          "schema" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          }
+        }, {
+          "description" : "Download title keyword.",
+          "in" : "query",
+          "name" : "keyword",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "SoftwareApp metadata.name.",
+          "in" : "query",
+          "name" : "appName",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "SoftwareVersion metadata.name.",
+          "in" : "query",
+          "name" : "versionName",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Download asset type.",
+          "in" : "query",
+          "name" : "type",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Download asset enabled state.",
+          "in" : "query",
+          "name" : "enabled",
+          "schema" : {
+            "type" : "boolean"
+          }
+        }, {
+          "description" : "Download protection state: protected.",
+          "in" : "query",
+          "name" : "protection",
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "default" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/DownloadAssetConsoleVoList"
+                }
+              }
+            },
+            "description" : "default response"
+          }
+        },
+        "tags" : [ "console.api.software.jiewen.run/v1alpha1/DownloadAsset" ]
+      },
+      "post" : {
+        "operationId" : "CreateDownloadAsset",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/DownloadAssetCommand"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "default" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/DownloadAssetConsoleVo"
+                }
+              }
+            },
+            "description" : "default response"
+          }
+        },
+        "tags" : [ "console.api.software.jiewen.run/v1alpha1/DownloadAsset" ]
+      }
+    },
+    "/apis/console.api.software.jiewen.run/v1alpha1/download-assets/stats" : {
+      "get" : {
+        "description" : "Get aggregate download asset statistics for Console.",
+        "operationId" : "GetDownloadAssetStats",
+        "responses" : {
+          "default" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/DownloadAssetStatsVo"
+                }
+              }
+            },
+            "description" : "default response"
+          }
+        },
+        "tags" : [ "console.api.software.jiewen.run/v1alpha1/DownloadAsset" ]
+      }
+    },
+    "/apis/console.api.software.jiewen.run/v1alpha1/download-assets/{name}" : {
+      "delete" : {
+        "operationId" : "DeleteDownloadAsset",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "name",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "default" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/DownloadAssetConsoleVo"
+                }
+              }
+            },
+            "description" : "default response"
+          }
+        },
+        "tags" : [ "console.api.software.jiewen.run/v1alpha1/DownloadAsset" ]
+      },
+      "patch" : {
+        "operationId" : "PatchDownloadAsset",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "name",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/DownloadAssetCommand"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "default" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/DownloadAssetConsoleVo"
+                }
+              }
+            },
+            "description" : "default response"
+          }
+        },
+        "tags" : [ "console.api.software.jiewen.run/v1alpha1/DownloadAsset" ]
+      },
+      "put" : {
+        "operationId" : "UpdateDownloadAsset",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "name",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/DownloadAssetCommand"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "default" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/DownloadAssetConsoleVo"
+                }
+              }
+            },
+            "description" : "default response"
+          }
+        },
+        "tags" : [ "console.api.software.jiewen.run/v1alpha1/DownloadAsset" ]
+      }
+    },
+    "/apis/console.api.software.jiewen.run/v1alpha1/download-assets/{name}/secrets" : {
+      "get" : {
+        "operationId" : "GetDownloadAssetSecret",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "name",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "default" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/DownloadAssetSecretVo"
+                }
+              }
+            },
+            "description" : "default response"
+          }
+        },
+        "tags" : [ "console.api.software.jiewen.run/v1alpha1/DownloadAsset" ]
+      },
+      "put" : {
+        "operationId" : "UpdateDownloadAssetSecret",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "name",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/DownloadAssetSecretCommand"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "default" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/DownloadAssetSecretVo"
+                }
+              }
+            },
+            "description" : "default response"
+          }
+        },
+        "tags" : [ "console.api.software.jiewen.run/v1alpha1/DownloadAsset" ]
+      }
+    },
+    "/apis/console.api.software.jiewen.run/v1alpha1/options" : {
+      "get" : {
+        "description" : "Get software plugin option settings for Console.",
+        "operationId" : "GetSoftwareOptions",
+        "responses" : {
+          "default" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SoftwareOptions"
+                }
+              }
+            },
+            "description" : "default response"
+          }
+        },
+        "tags" : [ "console.api.software.jiewen.run/v1alpha1/SoftwareOptions" ]
+      }
+    },
+    "/apis/console.api.software.jiewen.run/v1alpha1/tags" : {
+      "get" : {
+        "description" : "List software tags for Console.",
+        "operationId" : "ListSoftwareTags",
+        "parameters" : [ {
+          "description" : "Page number. Default is 0.",
+          "in" : "query",
+          "name" : "page",
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        }, {
+          "description" : "Size number. Default is 0.",
+          "in" : "query",
+          "name" : "size",
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        }, {
+          "description" : "Label selector. e.g.: hidden!=true",
+          "in" : "query",
+          "name" : "labelSelector",
+          "schema" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          }
+        }, {
+          "description" : "Field selector. e.g.: metadata.name==halo",
+          "in" : "query",
+          "name" : "fieldSelector",
+          "schema" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          }
+        }, {
+          "description" : "Sorting criteria in the format: property,(asc|desc). Default sort order is ascending. Multiple sort criteria are supported.",
+          "in" : "query",
+          "name" : "sort",
+          "schema" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          }
+        }, {
+          "description" : "Tag display-name or slug keyword.",
+          "in" : "query",
+          "name" : "keyword",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Visible state.",
+          "in" : "query",
+          "name" : "visible",
+          "schema" : {
+            "type" : "boolean"
+          }
+        }, {
+          "description" : "Usage state: used or unused.",
+          "in" : "query",
+          "name" : "usage",
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "default" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SoftwareTagList"
+                }
+              }
+            },
+            "description" : "default response"
+          }
+        },
+        "tags" : [ "console.api.software.jiewen.run/v1alpha1/SoftwareTag" ]
+      },
+      "post" : {
+        "operationId" : "CreateSoftwareTag",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/SoftwareTagCommand"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "default" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SoftwareTag"
+                }
+              }
+            },
+            "description" : "default response"
+          }
+        },
+        "tags" : [ "console.api.software.jiewen.run/v1alpha1/SoftwareTag" ]
+      }
+    },
+    "/apis/console.api.software.jiewen.run/v1alpha1/tags/{name}" : {
+      "delete" : {
+        "operationId" : "DeleteSoftwareTag",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "name",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "default" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SoftwareTag"
+                }
+              }
+            },
+            "description" : "default response"
+          }
+        },
+        "tags" : [ "console.api.software.jiewen.run/v1alpha1/SoftwareTag" ]
+      },
+      "get" : {
+        "operationId" : "GetSoftwareTag",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "name",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "default" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SoftwareTag"
+                }
+              }
+            },
+            "description" : "default response"
+          }
+        },
+        "tags" : [ "console.api.software.jiewen.run/v1alpha1/SoftwareTag" ]
+      },
+      "patch" : {
+        "operationId" : "PatchSoftwareTag",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "name",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/SoftwareTagCommand"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "default" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SoftwareTag"
+                }
+              }
+            },
+            "description" : "default response"
+          }
+        },
+        "tags" : [ "console.api.software.jiewen.run/v1alpha1/SoftwareTag" ]
+      },
+      "put" : {
+        "operationId" : "UpdateSoftwareTag",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "name",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/SoftwareTagCommand"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "default" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SoftwareTag"
+                }
+              }
+            },
+            "description" : "default response"
+          }
+        },
+        "tags" : [ "console.api.software.jiewen.run/v1alpha1/SoftwareTag" ]
+      }
+    },
+    "/apis/console.api.software.jiewen.run/v1alpha1/topics" : {
+      "get" : {
+        "description" : "List software topics for Console.",
+        "operationId" : "ListSoftwareTopics",
+        "parameters" : [ {
+          "description" : "Page number. Default is 0.",
+          "in" : "query",
+          "name" : "page",
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        }, {
+          "description" : "Size number. Default is 0.",
+          "in" : "query",
+          "name" : "size",
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        }, {
+          "description" : "Label selector. e.g.: hidden!=true",
+          "in" : "query",
+          "name" : "labelSelector",
+          "schema" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          }
+        }, {
+          "description" : "Field selector. e.g.: metadata.name==halo",
+          "in" : "query",
+          "name" : "fieldSelector",
+          "schema" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          }
+        }, {
+          "description" : "Sorting criteria in the format: property,(asc|desc). Default sort order is ascending. Multiple sort criteria are supported.",
+          "in" : "query",
+          "name" : "sort",
+          "schema" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          }
+        }, {
+          "description" : "Topic title or slug keyword.",
+          "in" : "query",
+          "name" : "keyword",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Published state.",
+          "in" : "query",
+          "name" : "published",
+          "schema" : {
+            "type" : "boolean"
+          }
+        }, {
+          "description" : "Featured state.",
+          "in" : "query",
+          "name" : "featured",
+          "schema" : {
+            "type" : "boolean"
+          }
+        } ],
+        "responses" : {
+          "default" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SoftwareTopicList"
+                }
+              }
+            },
+            "description" : "default response"
+          }
+        },
+        "tags" : [ "console.api.software.jiewen.run/v1alpha1/SoftwareTopic" ]
+      },
+      "post" : {
+        "operationId" : "CreateSoftwareTopic",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/SoftwareTopicCommand"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "default" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SoftwareTopic"
+                }
+              }
+            },
+            "description" : "default response"
+          }
+        },
+        "tags" : [ "console.api.software.jiewen.run/v1alpha1/SoftwareTopic" ]
+      }
+    },
+    "/apis/console.api.software.jiewen.run/v1alpha1/topics/{name}" : {
+      "delete" : {
+        "operationId" : "DeleteSoftwareTopic",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "name",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "default" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SoftwareTopic"
+                }
+              }
+            },
+            "description" : "default response"
+          }
+        },
+        "tags" : [ "console.api.software.jiewen.run/v1alpha1/SoftwareTopic" ]
+      },
+      "patch" : {
+        "operationId" : "PatchSoftwareTopic",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "name",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/SoftwareTopicCommand"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "default" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SoftwareTopic"
+                }
+              }
+            },
+            "description" : "default response"
+          }
+        },
+        "tags" : [ "console.api.software.jiewen.run/v1alpha1/SoftwareTopic" ]
+      },
+      "put" : {
+        "operationId" : "UpdateSoftwareTopic",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "name",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/SoftwareTopicCommand"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "default" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SoftwareTopic"
+                }
+              }
+            },
+            "description" : "default response"
+          }
+        },
+        "tags" : [ "console.api.software.jiewen.run/v1alpha1/SoftwareTopic" ]
+      }
+    },
+    "/apis/console.api.software.jiewen.run/v1alpha1/versions" : {
+      "get" : {
+        "description" : "List software versions for Console.",
+        "operationId" : "ListSoftwareVersions",
+        "parameters" : [ {
+          "description" : "Page number. Default is 0.",
+          "in" : "query",
+          "name" : "page",
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        }, {
+          "description" : "Size number. Default is 0.",
+          "in" : "query",
+          "name" : "size",
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        }, {
+          "description" : "Label selector. e.g.: hidden!=true",
+          "in" : "query",
+          "name" : "labelSelector",
+          "schema" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          }
+        }, {
+          "description" : "Field selector. e.g.: metadata.name==halo",
+          "in" : "query",
+          "name" : "fieldSelector",
+          "schema" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          }
+        }, {
+          "description" : "Sorting criteria in the format: property,(asc|desc). Default sort order is ascending. Multiple sort criteria are supported.",
+          "in" : "query",
+          "name" : "sort",
+          "schema" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          }
+        }, {
+          "description" : "Version keyword.",
+          "in" : "query",
+          "name" : "keyword",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "SoftwareApp metadata.name.",
+          "in" : "query",
+          "name" : "appName",
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "default" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SoftwareVersionList"
+                }
+              }
+            },
+            "description" : "default response"
+          }
+        },
+        "tags" : [ "console.api.software.jiewen.run/v1alpha1/SoftwareVersion" ]
+      },
+      "post" : {
+        "operationId" : "CreateSoftwareVersion",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/SoftwareVersionCommand"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "default" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SoftwareVersion"
+                }
+              }
+            },
+            "description" : "default response"
+          }
+        },
+        "tags" : [ "console.api.software.jiewen.run/v1alpha1/SoftwareVersion" ]
+      }
+    },
+    "/apis/console.api.software.jiewen.run/v1alpha1/versions/{name}" : {
+      "delete" : {
+        "operationId" : "DeleteSoftwareVersion",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "name",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "default" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SoftwareVersion"
+                }
+              }
+            },
+            "description" : "default response"
+          }
+        },
+        "tags" : [ "console.api.software.jiewen.run/v1alpha1/SoftwareVersion" ]
+      },
+      "patch" : {
+        "operationId" : "PatchSoftwareVersion",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "name",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/SoftwareVersionCommand"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "default" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SoftwareVersion"
+                }
+              }
+            },
+            "description" : "default response"
+          }
+        },
+        "tags" : [ "console.api.software.jiewen.run/v1alpha1/SoftwareVersion" ]
+      },
+      "put" : {
+        "operationId" : "UpdateSoftwareVersion",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "name",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/SoftwareVersionCommand"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "default" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SoftwareVersion"
+                }
+              }
+            },
+            "description" : "default response"
+          }
+        },
+        "tags" : [ "console.api.software.jiewen.run/v1alpha1/SoftwareVersion" ]
+      }
+    },
+    "/apis/software.jiewen.run/v1alpha1/downloadassets" : {
+      "get" : {
+        "description" : "List DownloadAsset",
+        "operationId" : "listDownloadAsset",
+        "parameters" : [ {
+          "description" : "Page number. Default is 0.",
+          "in" : "query",
+          "name" : "page",
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        }, {
+          "description" : "Size number. Default is 0.",
+          "in" : "query",
+          "name" : "size",
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        }, {
+          "description" : "Label selector. e.g.: hidden!=true",
+          "in" : "query",
+          "name" : "labelSelector",
+          "schema" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          }
+        }, {
+          "description" : "Field selector. e.g.: metadata.name==halo",
+          "in" : "query",
+          "name" : "fieldSelector",
+          "schema" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          }
+        }, {
+          "description" : "Sorting criteria in the format: property,(asc|desc). Default sort order is ascending. Multiple sort criteria are supported.",
+          "in" : "query",
+          "name" : "sort",
+          "schema" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/DownloadAssetList"
+                }
+              }
+            },
+            "description" : "Response downloadassets"
+          }
+        },
+        "tags" : [ "DownloadAssetV1alpha1" ]
+      },
+      "post" : {
+        "description" : "Create DownloadAsset",
+        "operationId" : "createDownloadAsset",
+        "requestBody" : {
+          "content" : {
+            "*/*" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/DownloadAsset"
+              }
+            }
+          },
+          "description" : "Fresh downloadasset"
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/DownloadAsset"
+                }
+              }
+            },
+            "description" : "Response downloadassets created just now"
+          }
+        },
+        "tags" : [ "DownloadAssetV1alpha1" ]
+      }
+    },
+    "/apis/software.jiewen.run/v1alpha1/downloadassets/{name}" : {
+      "delete" : {
+        "description" : "Delete DownloadAsset",
+        "operationId" : "deleteDownloadAsset",
+        "parameters" : [ {
+          "description" : "Name of downloadasset",
+          "in" : "path",
+          "name" : "name",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "Response downloadasset deleted just now"
+          }
+        },
+        "tags" : [ "DownloadAssetV1alpha1" ]
+      },
+      "get" : {
+        "description" : "Get DownloadAsset",
+        "operationId" : "getDownloadAsset",
+        "parameters" : [ {
+          "description" : "Name of downloadasset",
+          "in" : "path",
+          "name" : "name",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/DownloadAsset"
+                }
+              }
+            },
+            "description" : "Response single downloadasset"
+          }
+        },
+        "tags" : [ "DownloadAssetV1alpha1" ]
+      },
+      "patch" : {
+        "description" : "Patch DownloadAsset",
+        "operationId" : "patchDownloadAsset",
+        "parameters" : [ {
+          "description" : "Name of downloadasset",
+          "in" : "path",
+          "name" : "name",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json-patch+json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/JsonPatch"
+              }
+            }
+          }
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/DownloadAsset"
+                }
+              }
+            },
+            "description" : "Response downloadasset patched just now"
+          }
+        },
+        "tags" : [ "DownloadAssetV1alpha1" ]
+      },
+      "put" : {
+        "description" : "Update DownloadAsset",
+        "operationId" : "updateDownloadAsset",
+        "parameters" : [ {
+          "description" : "Name of downloadasset",
+          "in" : "path",
+          "name" : "name",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "*/*" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/DownloadAsset"
+              }
+            }
+          },
+          "description" : "Updated downloadasset"
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/DownloadAsset"
+                }
+              }
+            },
+            "description" : "Response downloadassets updated just now"
+          }
+        },
+        "tags" : [ "DownloadAssetV1alpha1" ]
+      }
+    },
+    "/apis/software.jiewen.run/v1alpha1/softwareapps" : {
+      "get" : {
+        "description" : "List SoftwareApp",
+        "operationId" : "listSoftwareApp",
+        "parameters" : [ {
+          "description" : "Page number. Default is 0.",
+          "in" : "query",
+          "name" : "page",
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        }, {
+          "description" : "Size number. Default is 0.",
+          "in" : "query",
+          "name" : "size",
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        }, {
+          "description" : "Label selector. e.g.: hidden!=true",
+          "in" : "query",
+          "name" : "labelSelector",
+          "schema" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          }
+        }, {
+          "description" : "Field selector. e.g.: metadata.name==halo",
+          "in" : "query",
+          "name" : "fieldSelector",
+          "schema" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          }
+        }, {
+          "description" : "Sorting criteria in the format: property,(asc|desc). Default sort order is ascending. Multiple sort criteria are supported.",
+          "in" : "query",
+          "name" : "sort",
+          "schema" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SoftwareAppList"
+                }
+              }
+            },
+            "description" : "Response softwareapps"
+          }
+        },
+        "tags" : [ "SoftwareAppV1alpha1" ]
+      },
+      "post" : {
+        "description" : "Create SoftwareApp",
+        "operationId" : "createSoftwareApp",
+        "requestBody" : {
+          "content" : {
+            "*/*" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/SoftwareApp"
+              }
+            }
+          },
+          "description" : "Fresh softwareapp"
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SoftwareApp"
+                }
+              }
+            },
+            "description" : "Response softwareapps created just now"
+          }
+        },
+        "tags" : [ "SoftwareAppV1alpha1" ]
+      }
+    },
+    "/apis/software.jiewen.run/v1alpha1/softwareapps/{name}" : {
+      "delete" : {
+        "description" : "Delete SoftwareApp",
+        "operationId" : "deleteSoftwareApp",
+        "parameters" : [ {
+          "description" : "Name of softwareapp",
+          "in" : "path",
+          "name" : "name",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "Response softwareapp deleted just now"
+          }
+        },
+        "tags" : [ "SoftwareAppV1alpha1" ]
+      },
+      "get" : {
+        "description" : "Get SoftwareApp",
+        "operationId" : "getSoftwareApp",
+        "parameters" : [ {
+          "description" : "Name of softwareapp",
+          "in" : "path",
+          "name" : "name",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SoftwareApp"
+                }
+              }
+            },
+            "description" : "Response single softwareapp"
+          }
+        },
+        "tags" : [ "SoftwareAppV1alpha1" ]
+      },
+      "patch" : {
+        "description" : "Patch SoftwareApp",
+        "operationId" : "patchSoftwareApp",
+        "parameters" : [ {
+          "description" : "Name of softwareapp",
+          "in" : "path",
+          "name" : "name",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json-patch+json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/JsonPatch"
+              }
+            }
+          }
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SoftwareApp"
+                }
+              }
+            },
+            "description" : "Response softwareapp patched just now"
+          }
+        },
+        "tags" : [ "SoftwareAppV1alpha1" ]
+      },
+      "put" : {
+        "description" : "Update SoftwareApp",
+        "operationId" : "updateSoftwareApp",
+        "parameters" : [ {
+          "description" : "Name of softwareapp",
+          "in" : "path",
+          "name" : "name",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "*/*" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/SoftwareApp"
+              }
+            }
+          },
+          "description" : "Updated softwareapp"
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SoftwareApp"
+                }
+              }
+            },
+            "description" : "Response softwareapps updated just now"
+          }
+        },
+        "tags" : [ "SoftwareAppV1alpha1" ]
+      }
+    },
+    "/apis/software.jiewen.run/v1alpha1/softwarecategories" : {
+      "get" : {
+        "description" : "List SoftwareCategory",
+        "operationId" : "listSoftwareCategory",
+        "parameters" : [ {
+          "description" : "Page number. Default is 0.",
+          "in" : "query",
+          "name" : "page",
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        }, {
+          "description" : "Size number. Default is 0.",
+          "in" : "query",
+          "name" : "size",
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        }, {
+          "description" : "Label selector. e.g.: hidden!=true",
+          "in" : "query",
+          "name" : "labelSelector",
+          "schema" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          }
+        }, {
+          "description" : "Field selector. e.g.: metadata.name==halo",
+          "in" : "query",
+          "name" : "fieldSelector",
+          "schema" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          }
+        }, {
+          "description" : "Sorting criteria in the format: property,(asc|desc). Default sort order is ascending. Multiple sort criteria are supported.",
+          "in" : "query",
+          "name" : "sort",
+          "schema" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SoftwareCategoryList"
+                }
+              }
+            },
+            "description" : "Response softwarecategories"
+          }
+        },
+        "tags" : [ "SoftwareCategoryV1alpha1" ]
+      },
+      "post" : {
+        "description" : "Create SoftwareCategory",
+        "operationId" : "createSoftwareCategory",
+        "requestBody" : {
+          "content" : {
+            "*/*" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/SoftwareCategory"
+              }
+            }
+          },
+          "description" : "Fresh softwarecategory"
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SoftwareCategory"
+                }
+              }
+            },
+            "description" : "Response softwarecategories created just now"
+          }
+        },
+        "tags" : [ "SoftwareCategoryV1alpha1" ]
+      }
+    },
+    "/apis/software.jiewen.run/v1alpha1/softwarecategories/{name}" : {
+      "delete" : {
+        "description" : "Delete SoftwareCategory",
+        "operationId" : "deleteSoftwareCategory",
+        "parameters" : [ {
+          "description" : "Name of softwarecategory",
+          "in" : "path",
+          "name" : "name",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "Response softwarecategory deleted just now"
+          }
+        },
+        "tags" : [ "SoftwareCategoryV1alpha1" ]
+      },
+      "get" : {
+        "description" : "Get SoftwareCategory",
+        "operationId" : "getSoftwareCategory",
+        "parameters" : [ {
+          "description" : "Name of softwarecategory",
+          "in" : "path",
+          "name" : "name",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SoftwareCategory"
+                }
+              }
+            },
+            "description" : "Response single softwarecategory"
+          }
+        },
+        "tags" : [ "SoftwareCategoryV1alpha1" ]
+      },
+      "patch" : {
+        "description" : "Patch SoftwareCategory",
+        "operationId" : "patchSoftwareCategory",
+        "parameters" : [ {
+          "description" : "Name of softwarecategory",
+          "in" : "path",
+          "name" : "name",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json-patch+json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/JsonPatch"
+              }
+            }
+          }
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SoftwareCategory"
+                }
+              }
+            },
+            "description" : "Response softwarecategory patched just now"
+          }
+        },
+        "tags" : [ "SoftwareCategoryV1alpha1" ]
+      },
+      "put" : {
+        "description" : "Update SoftwareCategory",
+        "operationId" : "updateSoftwareCategory",
+        "parameters" : [ {
+          "description" : "Name of softwarecategory",
+          "in" : "path",
+          "name" : "name",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "*/*" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/SoftwareCategory"
+              }
+            }
+          },
+          "description" : "Updated softwarecategory"
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SoftwareCategory"
+                }
+              }
+            },
+            "description" : "Response softwarecategories updated just now"
+          }
+        },
+        "tags" : [ "SoftwareCategoryV1alpha1" ]
+      }
+    },
+    "/apis/software.jiewen.run/v1alpha1/softwaretags" : {
+      "get" : {
+        "description" : "List SoftwareTag",
+        "operationId" : "listSoftwareTag",
+        "parameters" : [ {
+          "description" : "Page number. Default is 0.",
+          "in" : "query",
+          "name" : "page",
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        }, {
+          "description" : "Size number. Default is 0.",
+          "in" : "query",
+          "name" : "size",
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        }, {
+          "description" : "Label selector. e.g.: hidden!=true",
+          "in" : "query",
+          "name" : "labelSelector",
+          "schema" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          }
+        }, {
+          "description" : "Field selector. e.g.: metadata.name==halo",
+          "in" : "query",
+          "name" : "fieldSelector",
+          "schema" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          }
+        }, {
+          "description" : "Sorting criteria in the format: property,(asc|desc). Default sort order is ascending. Multiple sort criteria are supported.",
+          "in" : "query",
+          "name" : "sort",
+          "schema" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SoftwareTagList"
+                }
+              }
+            },
+            "description" : "Response softwaretags"
+          }
+        },
+        "tags" : [ "SoftwareTagV1alpha1" ]
+      },
+      "post" : {
+        "description" : "Create SoftwareTag",
+        "operationId" : "createSoftwareTag",
+        "requestBody" : {
+          "content" : {
+            "*/*" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/SoftwareTag"
+              }
+            }
+          },
+          "description" : "Fresh softwaretag"
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SoftwareTag"
+                }
+              }
+            },
+            "description" : "Response softwaretags created just now"
+          }
+        },
+        "tags" : [ "SoftwareTagV1alpha1" ]
+      }
+    },
+    "/apis/software.jiewen.run/v1alpha1/softwaretags/{name}" : {
+      "delete" : {
+        "description" : "Delete SoftwareTag",
+        "operationId" : "deleteSoftwareTag",
+        "parameters" : [ {
+          "description" : "Name of softwaretag",
+          "in" : "path",
+          "name" : "name",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "Response softwaretag deleted just now"
+          }
+        },
+        "tags" : [ "SoftwareTagV1alpha1" ]
+      },
+      "get" : {
+        "description" : "Get SoftwareTag",
+        "operationId" : "getSoftwareTag",
+        "parameters" : [ {
+          "description" : "Name of softwaretag",
+          "in" : "path",
+          "name" : "name",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SoftwareTag"
+                }
+              }
+            },
+            "description" : "Response single softwaretag"
+          }
+        },
+        "tags" : [ "SoftwareTagV1alpha1" ]
+      },
+      "patch" : {
+        "description" : "Patch SoftwareTag",
+        "operationId" : "patchSoftwareTag",
+        "parameters" : [ {
+          "description" : "Name of softwaretag",
+          "in" : "path",
+          "name" : "name",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json-patch+json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/JsonPatch"
+              }
+            }
+          }
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SoftwareTag"
+                }
+              }
+            },
+            "description" : "Response softwaretag patched just now"
+          }
+        },
+        "tags" : [ "SoftwareTagV1alpha1" ]
+      },
+      "put" : {
+        "description" : "Update SoftwareTag",
+        "operationId" : "updateSoftwareTag",
+        "parameters" : [ {
+          "description" : "Name of softwaretag",
+          "in" : "path",
+          "name" : "name",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "*/*" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/SoftwareTag"
+              }
+            }
+          },
+          "description" : "Updated softwaretag"
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SoftwareTag"
+                }
+              }
+            },
+            "description" : "Response softwaretags updated just now"
+          }
+        },
+        "tags" : [ "SoftwareTagV1alpha1" ]
+      }
+    },
+    "/apis/software.jiewen.run/v1alpha1/softwaretopics" : {
+      "get" : {
+        "description" : "List SoftwareTopic",
+        "operationId" : "listSoftwareTopic",
+        "parameters" : [ {
+          "description" : "Page number. Default is 0.",
+          "in" : "query",
+          "name" : "page",
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        }, {
+          "description" : "Size number. Default is 0.",
+          "in" : "query",
+          "name" : "size",
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        }, {
+          "description" : "Label selector. e.g.: hidden!=true",
+          "in" : "query",
+          "name" : "labelSelector",
+          "schema" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          }
+        }, {
+          "description" : "Field selector. e.g.: metadata.name==halo",
+          "in" : "query",
+          "name" : "fieldSelector",
+          "schema" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          }
+        }, {
+          "description" : "Sorting criteria in the format: property,(asc|desc). Default sort order is ascending. Multiple sort criteria are supported.",
+          "in" : "query",
+          "name" : "sort",
+          "schema" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SoftwareTopicList"
+                }
+              }
+            },
+            "description" : "Response softwaretopics"
+          }
+        },
+        "tags" : [ "SoftwareTopicV1alpha1" ]
+      },
+      "post" : {
+        "description" : "Create SoftwareTopic",
+        "operationId" : "createSoftwareTopic",
+        "requestBody" : {
+          "content" : {
+            "*/*" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/SoftwareTopic"
+              }
+            }
+          },
+          "description" : "Fresh softwaretopic"
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SoftwareTopic"
+                }
+              }
+            },
+            "description" : "Response softwaretopics created just now"
+          }
+        },
+        "tags" : [ "SoftwareTopicV1alpha1" ]
+      }
+    },
+    "/apis/software.jiewen.run/v1alpha1/softwaretopics/{name}" : {
+      "delete" : {
+        "description" : "Delete SoftwareTopic",
+        "operationId" : "deleteSoftwareTopic",
+        "parameters" : [ {
+          "description" : "Name of softwaretopic",
+          "in" : "path",
+          "name" : "name",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "Response softwaretopic deleted just now"
+          }
+        },
+        "tags" : [ "SoftwareTopicV1alpha1" ]
+      },
+      "get" : {
+        "description" : "Get SoftwareTopic",
+        "operationId" : "getSoftwareTopic",
+        "parameters" : [ {
+          "description" : "Name of softwaretopic",
+          "in" : "path",
+          "name" : "name",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SoftwareTopic"
+                }
+              }
+            },
+            "description" : "Response single softwaretopic"
+          }
+        },
+        "tags" : [ "SoftwareTopicV1alpha1" ]
+      },
+      "patch" : {
+        "description" : "Patch SoftwareTopic",
+        "operationId" : "patchSoftwareTopic",
+        "parameters" : [ {
+          "description" : "Name of softwaretopic",
+          "in" : "path",
+          "name" : "name",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json-patch+json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/JsonPatch"
+              }
+            }
+          }
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SoftwareTopic"
+                }
+              }
+            },
+            "description" : "Response softwaretopic patched just now"
+          }
+        },
+        "tags" : [ "SoftwareTopicV1alpha1" ]
+      },
+      "put" : {
+        "description" : "Update SoftwareTopic",
+        "operationId" : "updateSoftwareTopic",
+        "parameters" : [ {
+          "description" : "Name of softwaretopic",
+          "in" : "path",
+          "name" : "name",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "*/*" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/SoftwareTopic"
+              }
+            }
+          },
+          "description" : "Updated softwaretopic"
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SoftwareTopic"
+                }
+              }
+            },
+            "description" : "Response softwaretopics updated just now"
+          }
+        },
+        "tags" : [ "SoftwareTopicV1alpha1" ]
+      }
+    },
+    "/apis/software.jiewen.run/v1alpha1/softwareversions" : {
+      "get" : {
+        "description" : "List SoftwareVersion",
+        "operationId" : "listSoftwareVersion",
+        "parameters" : [ {
+          "description" : "Page number. Default is 0.",
+          "in" : "query",
+          "name" : "page",
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        }, {
+          "description" : "Size number. Default is 0.",
+          "in" : "query",
+          "name" : "size",
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        }, {
+          "description" : "Label selector. e.g.: hidden!=true",
+          "in" : "query",
+          "name" : "labelSelector",
+          "schema" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          }
+        }, {
+          "description" : "Field selector. e.g.: metadata.name==halo",
+          "in" : "query",
+          "name" : "fieldSelector",
+          "schema" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          }
+        }, {
+          "description" : "Sorting criteria in the format: property,(asc|desc). Default sort order is ascending. Multiple sort criteria are supported.",
+          "in" : "query",
+          "name" : "sort",
+          "schema" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SoftwareVersionList"
+                }
+              }
+            },
+            "description" : "Response softwareversions"
+          }
+        },
+        "tags" : [ "SoftwareVersionV1alpha1" ]
+      },
+      "post" : {
+        "description" : "Create SoftwareVersion",
+        "operationId" : "createSoftwareVersion",
+        "requestBody" : {
+          "content" : {
+            "*/*" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/SoftwareVersion"
+              }
+            }
+          },
+          "description" : "Fresh softwareversion"
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SoftwareVersion"
+                }
+              }
+            },
+            "description" : "Response softwareversions created just now"
+          }
+        },
+        "tags" : [ "SoftwareVersionV1alpha1" ]
+      }
+    },
+    "/apis/software.jiewen.run/v1alpha1/softwareversions/{name}" : {
+      "delete" : {
+        "description" : "Delete SoftwareVersion",
+        "operationId" : "deleteSoftwareVersion",
+        "parameters" : [ {
+          "description" : "Name of softwareversion",
+          "in" : "path",
+          "name" : "name",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "Response softwareversion deleted just now"
+          }
+        },
+        "tags" : [ "SoftwareVersionV1alpha1" ]
+      },
+      "get" : {
+        "description" : "Get SoftwareVersion",
+        "operationId" : "getSoftwareVersion",
+        "parameters" : [ {
+          "description" : "Name of softwareversion",
+          "in" : "path",
+          "name" : "name",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SoftwareVersion"
+                }
+              }
+            },
+            "description" : "Response single softwareversion"
+          }
+        },
+        "tags" : [ "SoftwareVersionV1alpha1" ]
+      },
+      "patch" : {
+        "description" : "Patch SoftwareVersion",
+        "operationId" : "patchSoftwareVersion",
+        "parameters" : [ {
+          "description" : "Name of softwareversion",
+          "in" : "path",
+          "name" : "name",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json-patch+json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/JsonPatch"
+              }
+            }
+          }
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SoftwareVersion"
+                }
+              }
+            },
+            "description" : "Response softwareversion patched just now"
+          }
+        },
+        "tags" : [ "SoftwareVersionV1alpha1" ]
+      },
+      "put" : {
+        "description" : "Update SoftwareVersion",
+        "operationId" : "updateSoftwareVersion",
+        "parameters" : [ {
+          "description" : "Name of softwareversion",
+          "in" : "path",
+          "name" : "name",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "*/*" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/SoftwareVersion"
+              }
+            }
+          },
+          "description" : "Updated softwareversion"
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SoftwareVersion"
+                }
+              }
+            },
+            "description" : "Response softwareversions updated just now"
+          }
+        },
+        "tags" : [ "SoftwareVersionV1alpha1" ]
+      }
+    }
+  },
+  "components" : {
+    "schemas" : {
+      "AddOperation" : {
+        "required" : [ "op", "path", "value" ],
+        "type" : "object",
+        "properties" : {
+          "op" : {
+            "type" : "string",
+            "enum" : [ "add" ]
+          },
+          "path" : {
+            "pattern" : "^(/[^/~]*(~[01][^/~]*)*)*$",
+            "type" : "string",
+            "description" : "A JSON Pointer path pointing to the location to move/copy from.",
+            "example" : "/a/b/c"
+          },
+          "value" : {
+            "description" : "Value can be any JSON value"
+          }
+        }
+      },
+      "CopyOperation" : {
+        "required" : [ "op", "from", "path" ],
+        "type" : "object",
+        "properties" : {
+          "from" : {
+            "pattern" : "^(/[^/~]*(~[01][^/~]*)*)*$",
+            "type" : "string",
+            "description" : "A JSON Pointer path pointing to the location to move/copy from.",
+            "example" : "/a/b/c"
+          },
+          "op" : {
+            "type" : "string",
+            "enum" : [ "copy" ]
+          },
+          "path" : {
+            "pattern" : "^(/[^/~]*(~[01][^/~]*)*)*$",
+            "type" : "string",
+            "description" : "A JSON Pointer path pointing to the location to move/copy from.",
+            "example" : "/a/b/c"
+          }
+        }
+      },
+      "DownloadAsset" : {
+        "required" : [ "apiVersion", "kind", "metadata", "spec" ],
+        "type" : "object",
+        "properties" : {
+          "apiVersion" : {
+            "type" : "string"
+          },
+          "kind" : {
+            "type" : "string"
+          },
+          "metadata" : {
+            "$ref" : "#/components/schemas/Metadata"
+          },
+          "spec" : {
+            "$ref" : "#/components/schemas/DownloadAssetSpec"
+          },
+          "status" : {
+            "$ref" : "#/components/schemas/DownloadAssetStatus"
+          }
+        }
+      },
+      "DownloadAssetCommand" : {
+        "required" : [ "spec" ],
+        "type" : "object",
+        "properties" : {
+          "spec" : {
+            "$ref" : "#/components/schemas/DownloadAssetCommandSpec"
+          }
+        }
+      },
+      "DownloadAssetCommandSpec" : {
+        "type" : "object",
+        "properties" : {
+          "appName" : {
+            "type" : "string"
+          },
+          "enabled" : {
+            "type" : "boolean"
+          },
+          "priority" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "provider" : {
+            "type" : "string"
+          },
+          "region" : {
+            "type" : "string"
+          },
+          "requiresCaptcha" : {
+            "type" : "boolean"
+          },
+          "requiresLogin" : {
+            "type" : "boolean"
+          },
+          "title" : {
+            "type" : "string"
+          },
+          "type" : {
+            "type" : "string"
+          },
+          "versionName" : {
+            "type" : "string"
+          }
+        }
+      },
+      "DownloadAssetConsoleSpec" : {
+        "type" : "object",
+        "properties" : {
+          "appName" : {
+            "type" : "string"
+          },
+          "enabled" : {
+            "type" : "boolean"
+          },
+          "hasExtractionCode" : {
+            "type" : "boolean"
+          },
+          "hasPasswordSecret" : {
+            "type" : "boolean"
+          },
+          "hasStorageKey" : {
+            "type" : "boolean"
+          },
+          "hasUrl" : {
+            "type" : "boolean"
+          },
+          "priority" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "provider" : {
+            "type" : "string"
+          },
+          "region" : {
+            "type" : "string"
+          },
+          "requiresCaptcha" : {
+            "type" : "boolean"
+          },
+          "requiresLogin" : {
+            "type" : "boolean"
+          },
+          "title" : {
+            "type" : "string"
+          },
+          "type" : {
+            "type" : "string"
+          },
+          "versionName" : {
+            "type" : "string"
+          }
+        }
+      },
+      "DownloadAssetConsoleVo" : {
+        "type" : "object",
+        "properties" : {
+          "metadata" : {
+            "$ref" : "#/components/schemas/Metadata"
+          },
+          "spec" : {
+            "$ref" : "#/components/schemas/DownloadAssetConsoleSpec"
+          },
+          "status" : {
+            "$ref" : "#/components/schemas/DownloadAssetStatus"
+          }
+        }
+      },
+      "DownloadAssetConsoleVoList" : {
+        "required" : [ "first", "hasNext", "hasPrevious", "items", "last", "page", "size", "total", "totalPages" ],
+        "type" : "object",
+        "properties" : {
+          "first" : {
+            "type" : "boolean",
+            "description" : "Indicates whether current page is the first page."
+          },
+          "hasNext" : {
+            "type" : "boolean",
+            "description" : "Indicates whether current page has previous page."
+          },
+          "hasPrevious" : {
+            "type" : "boolean",
+            "description" : "Indicates whether current page has previous page."
+          },
+          "items" : {
+            "type" : "array",
+            "description" : "A chunk of items.",
+            "items" : {
+              "$ref" : "#/components/schemas/DownloadAssetConsoleVo"
+            }
+          },
+          "last" : {
+            "type" : "boolean",
+            "description" : "Indicates whether current page is the last page."
+          },
+          "page" : {
+            "type" : "integer",
+            "description" : "Page number, starts from 1. If not set or equal to 0, it means no pagination.",
+            "format" : "int32"
+          },
+          "size" : {
+            "type" : "integer",
+            "description" : "Size of each page. If not set or equal to 0, it means no pagination.",
+            "format" : "int32"
+          },
+          "total" : {
+            "type" : "integer",
+            "description" : "Total elements.",
+            "format" : "int64"
+          },
+          "totalPages" : {
+            "type" : "integer",
+            "description" : "Indicates total pages.",
+            "format" : "int64"
+          }
+        }
+      },
+      "DownloadAssetList" : {
+        "required" : [ "first", "hasNext", "hasPrevious", "items", "last", "page", "size", "total", "totalPages" ],
+        "type" : "object",
+        "properties" : {
+          "first" : {
+            "type" : "boolean",
+            "description" : "Indicates whether current page is the first page."
+          },
+          "hasNext" : {
+            "type" : "boolean",
+            "description" : "Indicates whether current page has previous page."
+          },
+          "hasPrevious" : {
+            "type" : "boolean",
+            "description" : "Indicates whether current page has previous page."
+          },
+          "items" : {
+            "type" : "array",
+            "description" : "A chunk of items.",
+            "items" : {
+              "$ref" : "#/components/schemas/DownloadAsset"
+            }
+          },
+          "last" : {
+            "type" : "boolean",
+            "description" : "Indicates whether current page is the last page."
+          },
+          "page" : {
+            "type" : "integer",
+            "description" : "Page number, starts from 1. If not set or equal to 0, it means no pagination.",
+            "format" : "int32"
+          },
+          "size" : {
+            "type" : "integer",
+            "description" : "Size of each page. If not set or equal to 0, it means no pagination.",
+            "format" : "int32"
+          },
+          "total" : {
+            "type" : "integer",
+            "description" : "Total elements.",
+            "format" : "int64"
+          },
+          "totalPages" : {
+            "type" : "integer",
+            "description" : "Indicates total pages.",
+            "format" : "int64"
+          }
+        }
+      },
+      "DownloadAssetSecretCommand" : {
+        "type" : "object",
+        "properties" : {
+          "extractionCode" : {
+            "type" : "string",
+            "description" : "Extraction code shown only after a download grant is issued."
+          },
+          "passwordSecretName" : {
+            "type" : "string",
+            "description" : "Halo Secret metadata.name containing password/url overrides."
+          },
+          "storageKey" : {
+            "type" : "string",
+            "description" : "Provider-specific storage key."
+          },
+          "url" : {
+            "type" : "string",
+            "description" : "Final download URL."
+          }
+        }
+      },
+      "DownloadAssetSecretVo" : {
+        "type" : "object",
+        "properties" : {
+          "extractionCode" : {
+            "type" : "string"
+          },
+          "name" : {
+            "type" : "string"
+          },
+          "passwordSecretName" : {
+            "type" : "string"
+          },
+          "storageKey" : {
+            "type" : "string"
+          },
+          "url" : {
+            "type" : "string"
+          }
+        }
+      },
+      "DownloadAssetSpec" : {
+        "required" : [ "appName", "title", "versionName" ],
+        "type" : "object",
+        "properties" : {
+          "appName" : {
+            "type" : "string",
+            "description" : "SoftwareApp metadata.name."
+          },
+          "enabled" : {
+            "type" : "boolean"
+          },
+          "extractionCode" : {
+            "type" : "string"
+          },
+          "passwordSecretName" : {
+            "type" : "string"
+          },
+          "priority" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "provider" : {
+            "type" : "string"
+          },
+          "region" : {
+            "type" : "string"
+          },
+          "requiresCaptcha" : {
+            "type" : "boolean"
+          },
+          "requiresLogin" : {
+            "type" : "boolean"
+          },
+          "storageKey" : {
+            "type" : "string"
+          },
+          "title" : {
+            "type" : "string"
+          },
+          "type" : {
+            "type" : "string"
+          },
+          "url" : {
+            "type" : "string"
+          },
+          "versionName" : {
+            "type" : "string",
+            "description" : "SoftwareVersion metadata.name."
+          }
+        }
+      },
+      "DownloadAssetStatsVo" : {
+        "type" : "object",
+        "properties" : {
+          "disabled" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "downloads" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "enabled" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "protectedCount" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "total" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }
+      },
+      "DownloadAssetStatus" : {
+        "type" : "object",
+        "properties" : {
+          "downloadCount" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "health" : {
+            "type" : "string"
+          },
+          "lastCheckedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "observedAppName" : {
+            "type" : "string"
+          },
+          "observedVersion" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "observedVersionName" : {
+            "type" : "string"
+          }
+        }
+      },
+      "DownloadAssetVo" : {
+        "type" : "object",
+        "properties" : {
+          "downloadCount" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "name" : {
+            "type" : "string"
+          },
+          "priority" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "provider" : {
+            "type" : "string"
+          },
+          "region" : {
+            "type" : "string"
+          },
+          "requiresCaptcha" : {
+            "type" : "boolean"
+          },
+          "requiresLogin" : {
+            "type" : "boolean"
+          },
+          "title" : {
+            "type" : "string"
+          },
+          "type" : {
+            "type" : "string"
+          },
+          "url" : {
+            "type" : "string"
+          },
+          "versionName" : {
+            "type" : "string"
+          }
+        }
+      },
+      "DownloadGrantRequest" : {
+        "required" : [ "slug" ],
+        "type" : "object",
+        "properties" : {
+          "assetName" : {
+            "type" : "string",
+            "description" : "Optional DownloadAsset metadata.name; latest released primary asset is used when absent."
+          },
+          "captchaToken" : {
+            "type" : "string",
+            "description" : "Captcha provider response token when the asset requires verification."
+          },
+          "slug" : {
+            "type" : "string"
+          }
+        }
+      },
+      "DownloadGrantVo" : {
+        "type" : "object",
+        "properties" : {
+          "assetName" : {
+            "type" : "string"
+          },
+          "expiresAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "extractionCode" : {
+            "type" : "string"
+          },
+          "password" : {
+            "type" : "string"
+          },
+          "title" : {
+            "type" : "string"
+          },
+          "url" : {
+            "type" : "string"
+          },
+          "versionName" : {
+            "type" : "string"
+          }
+        }
+      },
+      "DownloadSecurityVo" : {
+        "type" : "object",
+        "properties" : {
+          "captchaConfigured" : {
+            "type" : "boolean"
+          },
+          "captchaProvider" : {
+            "type" : "string"
+          },
+          "captchaSiteKey" : {
+            "type" : "string"
+          }
+        }
+      },
+      "JsonPatch" : {
+        "minItems" : 1,
+        "uniqueItems" : true,
+        "type" : "array",
+        "description" : "JSON schema for JSONPatch operations",
+        "items" : {
+          "oneOf" : [ {
+            "$ref" : "#/components/schemas/AddOperation"
+          }, {
+            "$ref" : "#/components/schemas/ReplaceOperation"
+          }, {
+            "$ref" : "#/components/schemas/TestOperation"
+          }, {
+            "$ref" : "#/components/schemas/RemoveOperation"
+          }, {
+            "$ref" : "#/components/schemas/MoveOperation"
+          }, {
+            "$ref" : "#/components/schemas/CopyOperation"
+          } ]
+        }
+      },
+      "Metadata" : {
+        "required" : [ "name" ],
+        "type" : "object",
+        "properties" : {
+          "annotations" : {
+            "type" : "object",
+            "additionalProperties" : {
+              "type" : "string"
+            },
+            "description" : "Annotations are like key-value format."
+          },
+          "creationTimestamp" : {
+            "type" : "string",
+            "description" : "Creation timestamp of the Extension.",
+            "format" : "date-time",
+            "nullable" : true
+          },
+          "deletionTimestamp" : {
+            "type" : "string",
+            "description" : "Deletion timestamp of the Extension.",
+            "format" : "date-time",
+            "nullable" : true
+          },
+          "finalizers" : {
+            "uniqueItems" : true,
+            "type" : "array",
+            "nullable" : true,
+            "items" : {
+              "type" : "string",
+              "nullable" : true
+            }
+          },
+          "generateName" : {
+            "type" : "string",
+            "description" : "The name field will be generated automatically according to the given generateName field"
+          },
+          "labels" : {
+            "type" : "object",
+            "additionalProperties" : {
+              "type" : "string"
+            },
+            "description" : "Labels are like key-value format."
+          },
+          "name" : {
+            "type" : "string",
+            "description" : "Metadata name"
+          },
+          "version" : {
+            "type" : "integer",
+            "description" : "Current version of the Extension. It will be bumped up every update.",
+            "format" : "int64",
+            "nullable" : true
+          }
+        },
+        "description" : "Metadata of Extension."
+      },
+      "MoveOperation" : {
+        "required" : [ "op", "from", "path" ],
+        "type" : "object",
+        "properties" : {
+          "from" : {
+            "pattern" : "^(/[^/~]*(~[01][^/~]*)*)*$",
+            "type" : "string",
+            "description" : "A JSON Pointer path pointing to the location to move/copy from.",
+            "example" : "/a/b/c"
+          },
+          "op" : {
+            "type" : "string",
+            "enum" : [ "move" ]
+          },
+          "path" : {
+            "pattern" : "^(/[^/~]*(~[01][^/~]*)*)*$",
+            "type" : "string",
+            "description" : "A JSON Pointer path pointing to the location to move/copy from.",
+            "example" : "/a/b/c"
+          }
+        }
+      },
+      "OptionItem" : {
+        "type" : "object",
+        "properties" : {
+          "className" : {
+            "type" : "string"
+          },
+          "label" : {
+            "type" : "string"
+          },
+          "shortLabel" : {
+            "type" : "string"
+          },
+          "value" : {
+            "type" : "string"
+          }
+        }
+      },
+      "RemoveOperation" : {
+        "required" : [ "op", "path" ],
+        "type" : "object",
+        "properties" : {
+          "op" : {
+            "type" : "string",
+            "enum" : [ "remove" ]
+          },
+          "path" : {
+            "pattern" : "^(/[^/~]*(~[01][^/~]*)*)*$",
+            "type" : "string",
+            "description" : "A JSON Pointer path pointing to the location to move/copy from.",
+            "example" : "/a/b/c"
+          }
+        }
+      },
+      "ReplaceOperation" : {
+        "required" : [ "op", "path", "value" ],
+        "type" : "object",
+        "properties" : {
+          "op" : {
+            "type" : "string",
+            "enum" : [ "replace" ]
+          },
+          "path" : {
+            "pattern" : "^(/[^/~]*(~[01][^/~]*)*)*$",
+            "type" : "string",
+            "description" : "A JSON Pointer path pointing to the location to move/copy from.",
+            "example" : "/a/b/c"
+          },
+          "value" : {
+            "description" : "Value can be any JSON value"
+          }
+        }
+      },
+      "SoftwareApp" : {
+        "required" : [ "apiVersion", "kind", "metadata", "spec" ],
+        "type" : "object",
+        "properties" : {
+          "apiVersion" : {
+            "type" : "string"
+          },
+          "kind" : {
+            "type" : "string"
+          },
+          "metadata" : {
+            "$ref" : "#/components/schemas/Metadata"
+          },
+          "spec" : {
+            "$ref" : "#/components/schemas/SoftwareAppSpec"
+          },
+          "status" : {
+            "$ref" : "#/components/schemas/SoftwareAppStatus"
+          }
+        }
+      },
+      "SoftwareAppCommand" : {
+        "required" : [ "spec" ],
+        "type" : "object",
+        "properties" : {
+          "spec" : {
+            "$ref" : "#/components/schemas/SoftwareAppSpec"
+          }
+        }
+      },
+      "SoftwareAppDetailVo" : {
+        "type" : "object",
+        "properties" : {
+          "architectures" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "categoryDisplayName" : {
+            "type" : "string"
+          },
+          "categoryName" : {
+            "type" : "string"
+          },
+          "categorySlug" : {
+            "type" : "string"
+          },
+          "commentCount" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "commentCountText" : {
+            "type" : "string"
+          },
+          "cover" : {
+            "type" : "string"
+          },
+          "description" : {
+            "type" : "string"
+          },
+          "displayName" : {
+            "type" : "string"
+          },
+          "downloadAssets" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/DownloadAssetVo"
+            }
+          },
+          "downloadCount" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "downloadCountText" : {
+            "type" : "string"
+          },
+          "featured" : {
+            "type" : "boolean"
+          },
+          "icon" : {
+            "type" : "string"
+          },
+          "latestReleaseDate" : {
+            "type" : "string",
+            "format" : "date"
+          },
+          "latestReleaseDateShort" : {
+            "type" : "string"
+          },
+          "latestReleaseDateText" : {
+            "type" : "string"
+          },
+          "latestReleaseWeekday" : {
+            "type" : "string"
+          },
+          "latestVersion" : {
+            "type" : "string"
+          },
+          "latestVersionName" : {
+            "type" : "string"
+          },
+          "licenseType" : {
+            "type" : "string"
+          },
+          "likeCount" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "likeCountText" : {
+            "type" : "string"
+          },
+          "locale" : {
+            "type" : "string"
+          },
+          "localeLabel" : {
+            "type" : "string"
+          },
+          "localeUnit" : {
+            "type" : "string"
+          },
+          "localeValue" : {
+            "type" : "string"
+          },
+          "minOsDisplay" : {
+            "type" : "string"
+          },
+          "minOsVersion" : {
+            "type" : "string"
+          },
+          "name" : {
+            "type" : "string"
+          },
+          "officialWebsite" : {
+            "type" : "string"
+          },
+          "permalink" : {
+            "type" : "string"
+          },
+          "platform" : {
+            "type" : "string"
+          },
+          "platforms" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "publishedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "recommended" : {
+            "type" : "boolean"
+          },
+          "relatedApps" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/SoftwareAppVo"
+            }
+          },
+          "relatedPosts" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/SoftwareRelatedPostVo"
+            }
+          },
+          "screenshots" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "seo" : {
+            "$ref" : "#/components/schemas/SoftwareSeoVo"
+          },
+          "sizeBytes" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "sizeText" : {
+            "type" : "string"
+          },
+          "sizeUnit" : {
+            "type" : "string"
+          },
+          "sizeValue" : {
+            "type" : "string"
+          },
+          "slug" : {
+            "type" : "string"
+          },
+          "subtitle" : {
+            "type" : "string"
+          },
+          "summary" : {
+            "type" : "string"
+          },
+          "tagDisplayNames" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "tagNames" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "versions" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/SoftwareVersionVo"
+            }
+          }
+        }
+      },
+      "SoftwareAppList" : {
+        "required" : [ "first", "hasNext", "hasPrevious", "items", "last", "page", "size", "total", "totalPages" ],
+        "type" : "object",
+        "properties" : {
+          "first" : {
+            "type" : "boolean",
+            "description" : "Indicates whether current page is the first page."
+          },
+          "hasNext" : {
+            "type" : "boolean",
+            "description" : "Indicates whether current page has previous page."
+          },
+          "hasPrevious" : {
+            "type" : "boolean",
+            "description" : "Indicates whether current page has previous page."
+          },
+          "items" : {
+            "type" : "array",
+            "description" : "A chunk of items.",
+            "items" : {
+              "$ref" : "#/components/schemas/SoftwareApp"
+            }
+          },
+          "last" : {
+            "type" : "boolean",
+            "description" : "Indicates whether current page is the last page."
+          },
+          "page" : {
+            "type" : "integer",
+            "description" : "Page number, starts from 1. If not set or equal to 0, it means no pagination.",
+            "format" : "int32"
+          },
+          "size" : {
+            "type" : "integer",
+            "description" : "Size of each page. If not set or equal to 0, it means no pagination.",
+            "format" : "int32"
+          },
+          "total" : {
+            "type" : "integer",
+            "description" : "Total elements.",
+            "format" : "int64"
+          },
+          "totalPages" : {
+            "type" : "integer",
+            "description" : "Indicates total pages.",
+            "format" : "int64"
+          }
+        }
+      },
+      "SoftwareAppSeo" : {
+        "type" : "object",
+        "properties" : {
+          "description" : {
+            "type" : "string"
+          },
+          "keywords" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "title" : {
+            "type" : "string"
+          }
+        }
+      },
+      "SoftwareAppSpec" : {
+        "required" : [ "displayName", "slug" ],
+        "type" : "object",
+        "properties" : {
+          "architectures" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "categoryName" : {
+            "type" : "string"
+          },
+          "cover" : {
+            "type" : "string"
+          },
+          "description" : {
+            "type" : "string"
+          },
+          "displayName" : {
+            "type" : "string",
+            "description" : "Display name shown to visitors."
+          },
+          "editorRating" : {
+            "type" : "number",
+            "format" : "double"
+          },
+          "featured" : {
+            "type" : "boolean"
+          },
+          "icon" : {
+            "type" : "string"
+          },
+          "licenseType" : {
+            "type" : "string"
+          },
+          "locale" : {
+            "type" : "string"
+          },
+          "officialWebsite" : {
+            "type" : "string"
+          },
+          "platform" : {
+            "type" : "string"
+          },
+          "platforms" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "published" : {
+            "type" : "boolean"
+          },
+          "publishedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "recommended" : {
+            "type" : "boolean"
+          },
+          "relatedAppNames" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "relatedPostNames" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "releaseChannel" : {
+            "type" : "string"
+          },
+          "screenshots" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "seo" : {
+            "$ref" : "#/components/schemas/SoftwareAppSeo"
+          },
+          "slug" : {
+            "type" : "string",
+            "description" : "Public URL slug, independent from metadata.name."
+          },
+          "subtitle" : {
+            "type" : "string"
+          },
+          "summary" : {
+            "type" : "string"
+          },
+          "tagNames" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "vendor" : {
+            "type" : "string"
+          }
+        }
+      },
+      "SoftwareAppStatus" : {
+        "type" : "object",
+        "properties" : {
+          "commentCount" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "downloadCount" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "health" : {
+            "type" : "string"
+          },
+          "latestReleaseDate" : {
+            "type" : "string",
+            "format" : "date"
+          },
+          "latestVersion" : {
+            "type" : "string"
+          },
+          "latestVersionName" : {
+            "type" : "string"
+          },
+          "likeCount" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "minOsVersion" : {
+            "type" : "string"
+          },
+          "observedVersion" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "sizeBytes" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }
+      },
+      "SoftwareAppVo" : {
+        "type" : "object",
+        "properties" : {
+          "architectures" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "categoryDisplayName" : {
+            "type" : "string"
+          },
+          "categoryName" : {
+            "type" : "string"
+          },
+          "categorySlug" : {
+            "type" : "string"
+          },
+          "commentCount" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "commentCountText" : {
+            "type" : "string"
+          },
+          "cover" : {
+            "type" : "string"
+          },
+          "description" : {
+            "type" : "string"
+          },
+          "displayName" : {
+            "type" : "string"
+          },
+          "downloadCount" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "downloadCountText" : {
+            "type" : "string"
+          },
+          "featured" : {
+            "type" : "boolean"
+          },
+          "icon" : {
+            "type" : "string"
+          },
+          "latestReleaseDate" : {
+            "type" : "string",
+            "format" : "date"
+          },
+          "latestReleaseDateShort" : {
+            "type" : "string"
+          },
+          "latestReleaseDateText" : {
+            "type" : "string"
+          },
+          "latestReleaseWeekday" : {
+            "type" : "string"
+          },
+          "latestVersion" : {
+            "type" : "string"
+          },
+          "latestVersionName" : {
+            "type" : "string"
+          },
+          "licenseType" : {
+            "type" : "string"
+          },
+          "likeCount" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "likeCountText" : {
+            "type" : "string"
+          },
+          "locale" : {
+            "type" : "string"
+          },
+          "localeLabel" : {
+            "type" : "string"
+          },
+          "localeUnit" : {
+            "type" : "string"
+          },
+          "localeValue" : {
+            "type" : "string"
+          },
+          "minOsDisplay" : {
+            "type" : "string"
+          },
+          "minOsVersion" : {
+            "type" : "string"
+          },
+          "name" : {
+            "type" : "string"
+          },
+          "officialWebsite" : {
+            "type" : "string"
+          },
+          "permalink" : {
+            "type" : "string"
+          },
+          "platform" : {
+            "type" : "string"
+          },
+          "platforms" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "publishedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "recommended" : {
+            "type" : "boolean"
+          },
+          "screenshots" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "seo" : {
+            "$ref" : "#/components/schemas/SoftwareSeoVo"
+          },
+          "sizeBytes" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "sizeText" : {
+            "type" : "string"
+          },
+          "sizeUnit" : {
+            "type" : "string"
+          },
+          "sizeValue" : {
+            "type" : "string"
+          },
+          "slug" : {
+            "type" : "string"
+          },
+          "subtitle" : {
+            "type" : "string"
+          },
+          "summary" : {
+            "type" : "string"
+          },
+          "tagDisplayNames" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "tagNames" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          }
+        }
+      },
+      "SoftwareAppVoList" : {
+        "required" : [ "first", "hasNext", "hasPrevious", "items", "last", "page", "size", "total", "totalPages" ],
+        "type" : "object",
+        "properties" : {
+          "first" : {
+            "type" : "boolean",
+            "description" : "Indicates whether current page is the first page."
+          },
+          "hasNext" : {
+            "type" : "boolean",
+            "description" : "Indicates whether current page has previous page."
+          },
+          "hasPrevious" : {
+            "type" : "boolean",
+            "description" : "Indicates whether current page has previous page."
+          },
+          "items" : {
+            "type" : "array",
+            "description" : "A chunk of items.",
+            "items" : {
+              "$ref" : "#/components/schemas/SoftwareAppVo"
+            }
+          },
+          "last" : {
+            "type" : "boolean",
+            "description" : "Indicates whether current page is the last page."
+          },
+          "page" : {
+            "type" : "integer",
+            "description" : "Page number, starts from 1. If not set or equal to 0, it means no pagination.",
+            "format" : "int32"
+          },
+          "size" : {
+            "type" : "integer",
+            "description" : "Size of each page. If not set or equal to 0, it means no pagination.",
+            "format" : "int32"
+          },
+          "total" : {
+            "type" : "integer",
+            "description" : "Total elements.",
+            "format" : "int64"
+          },
+          "totalPages" : {
+            "type" : "integer",
+            "description" : "Indicates total pages.",
+            "format" : "int64"
+          }
+        }
+      },
+      "SoftwareCategory" : {
+        "required" : [ "apiVersion", "kind", "metadata", "spec" ],
+        "type" : "object",
+        "properties" : {
+          "apiVersion" : {
+            "type" : "string"
+          },
+          "kind" : {
+            "type" : "string"
+          },
+          "metadata" : {
+            "$ref" : "#/components/schemas/Metadata"
+          },
+          "spec" : {
+            "$ref" : "#/components/schemas/SoftwareCategorySpec"
+          },
+          "status" : {
+            "$ref" : "#/components/schemas/SoftwareCategoryStatus"
+          }
+        }
+      },
+      "SoftwareCategoryCommand" : {
+        "required" : [ "spec" ],
+        "type" : "object",
+        "properties" : {
+          "spec" : {
+            "$ref" : "#/components/schemas/SoftwareCategorySpec"
+          }
+        }
+      },
+      "SoftwareCategoryList" : {
+        "required" : [ "first", "hasNext", "hasPrevious", "items", "last", "page", "size", "total", "totalPages" ],
+        "type" : "object",
+        "properties" : {
+          "first" : {
+            "type" : "boolean",
+            "description" : "Indicates whether current page is the first page."
+          },
+          "hasNext" : {
+            "type" : "boolean",
+            "description" : "Indicates whether current page has previous page."
+          },
+          "hasPrevious" : {
+            "type" : "boolean",
+            "description" : "Indicates whether current page has previous page."
+          },
+          "items" : {
+            "type" : "array",
+            "description" : "A chunk of items.",
+            "items" : {
+              "$ref" : "#/components/schemas/SoftwareCategory"
+            }
+          },
+          "last" : {
+            "type" : "boolean",
+            "description" : "Indicates whether current page is the last page."
+          },
+          "page" : {
+            "type" : "integer",
+            "description" : "Page number, starts from 1. If not set or equal to 0, it means no pagination.",
+            "format" : "int32"
+          },
+          "size" : {
+            "type" : "integer",
+            "description" : "Size of each page. If not set or equal to 0, it means no pagination.",
+            "format" : "int32"
+          },
+          "total" : {
+            "type" : "integer",
+            "description" : "Total elements.",
+            "format" : "int64"
+          },
+          "totalPages" : {
+            "type" : "integer",
+            "description" : "Indicates total pages.",
+            "format" : "int64"
+          }
+        }
+      },
+      "SoftwareCategorySpec" : {
+        "required" : [ "displayName", "slug" ],
+        "type" : "object",
+        "properties" : {
+          "description" : {
+            "type" : "string"
+          },
+          "displayName" : {
+            "type" : "string"
+          },
+          "icon" : {
+            "type" : "string"
+          },
+          "parentName" : {
+            "type" : "string"
+          },
+          "priority" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "seo" : {
+            "$ref" : "#/components/schemas/SoftwareAppSeo"
+          },
+          "slug" : {
+            "type" : "string"
+          },
+          "visible" : {
+            "type" : "boolean"
+          }
+        }
+      },
+      "SoftwareCategoryStatus" : {
+        "type" : "object",
+        "properties" : {
+          "appCount" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "observedVersion" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }
+      },
+      "SoftwareCategoryVo" : {
+        "type" : "object",
+        "properties" : {
+          "appCount" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "children" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/SoftwareCategoryVo"
+            }
+          },
+          "description" : {
+            "type" : "string"
+          },
+          "displayName" : {
+            "type" : "string"
+          },
+          "icon" : {
+            "type" : "string"
+          },
+          "name" : {
+            "type" : "string"
+          },
+          "parentName" : {
+            "type" : "string"
+          },
+          "priority" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "slug" : {
+            "type" : "string"
+          }
+        },
+        "description" : "A chunk of items."
+      },
+      "SoftwareCategoryVoList" : {
+        "required" : [ "first", "hasNext", "hasPrevious", "items", "last", "page", "size", "total", "totalPages" ],
+        "type" : "object",
+        "properties" : {
+          "first" : {
+            "type" : "boolean",
+            "description" : "Indicates whether current page is the first page."
+          },
+          "hasNext" : {
+            "type" : "boolean",
+            "description" : "Indicates whether current page has previous page."
+          },
+          "hasPrevious" : {
+            "type" : "boolean",
+            "description" : "Indicates whether current page has previous page."
+          },
+          "items" : {
+            "type" : "array",
+            "description" : "A chunk of items.",
+            "items" : {
+              "$ref" : "#/components/schemas/SoftwareCategoryVo"
+            }
+          },
+          "last" : {
+            "type" : "boolean",
+            "description" : "Indicates whether current page is the last page."
+          },
+          "page" : {
+            "type" : "integer",
+            "description" : "Page number, starts from 1. If not set or equal to 0, it means no pagination.",
+            "format" : "int32"
+          },
+          "size" : {
+            "type" : "integer",
+            "description" : "Size of each page. If not set or equal to 0, it means no pagination.",
+            "format" : "int32"
+          },
+          "total" : {
+            "type" : "integer",
+            "description" : "Total elements.",
+            "format" : "int64"
+          },
+          "totalPages" : {
+            "type" : "integer",
+            "description" : "Indicates total pages.",
+            "format" : "int64"
+          }
+        }
+      },
+      "SoftwareConsoleStatsVo" : {
+        "type" : "object",
+        "properties" : {
+          "downloads" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "drafts" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "platforms" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "published" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "total" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }
+      },
+      "SoftwareOptions" : {
+        "type" : "object",
+        "properties" : {
+          "architectures" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/OptionItem"
+            }
+          },
+          "downloadProviders" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/OptionItem"
+            }
+          },
+          "downloadTypes" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/OptionItem"
+            }
+          },
+          "locales" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/OptionItem"
+            }
+          },
+          "platforms" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/OptionItem"
+            }
+          },
+          "releaseChannels" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/OptionItem"
+            }
+          },
+          "versionStatuses" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/OptionItem"
+            }
+          }
+        }
+      },
+      "SoftwareRelatedPostVo" : {
+        "type" : "object",
+        "properties" : {
+          "cover" : {
+            "type" : "string"
+          },
+          "excerpt" : {
+            "type" : "string"
+          },
+          "permalink" : {
+            "type" : "string"
+          },
+          "publishedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "slug" : {
+            "type" : "string"
+          },
+          "title" : {
+            "type" : "string"
+          }
+        }
+      },
+      "SoftwareSeoVo" : {
+        "type" : "object",
+        "properties" : {
+          "description" : {
+            "type" : "string"
+          },
+          "keywords" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "title" : {
+            "type" : "string"
+          }
+        }
+      },
+      "SoftwareTag" : {
+        "required" : [ "apiVersion", "kind", "metadata", "spec" ],
+        "type" : "object",
+        "properties" : {
+          "apiVersion" : {
+            "type" : "string"
+          },
+          "kind" : {
+            "type" : "string"
+          },
+          "metadata" : {
+            "$ref" : "#/components/schemas/Metadata"
+          },
+          "spec" : {
+            "$ref" : "#/components/schemas/SoftwareTagSpec"
+          },
+          "status" : {
+            "$ref" : "#/components/schemas/SoftwareTagStatus"
+          }
+        }
+      },
+      "SoftwareTagCommand" : {
+        "required" : [ "spec" ],
+        "type" : "object",
+        "properties" : {
+          "spec" : {
+            "$ref" : "#/components/schemas/SoftwareTagSpec"
+          }
+        }
+      },
+      "SoftwareTagList" : {
+        "required" : [ "first", "hasNext", "hasPrevious", "items", "last", "page", "size", "total", "totalPages" ],
+        "type" : "object",
+        "properties" : {
+          "first" : {
+            "type" : "boolean",
+            "description" : "Indicates whether current page is the first page."
+          },
+          "hasNext" : {
+            "type" : "boolean",
+            "description" : "Indicates whether current page has previous page."
+          },
+          "hasPrevious" : {
+            "type" : "boolean",
+            "description" : "Indicates whether current page has previous page."
+          },
+          "items" : {
+            "type" : "array",
+            "description" : "A chunk of items.",
+            "items" : {
+              "$ref" : "#/components/schemas/SoftwareTag"
+            }
+          },
+          "last" : {
+            "type" : "boolean",
+            "description" : "Indicates whether current page is the last page."
+          },
+          "page" : {
+            "type" : "integer",
+            "description" : "Page number, starts from 1. If not set or equal to 0, it means no pagination.",
+            "format" : "int32"
+          },
+          "size" : {
+            "type" : "integer",
+            "description" : "Size of each page. If not set or equal to 0, it means no pagination.",
+            "format" : "int32"
+          },
+          "total" : {
+            "type" : "integer",
+            "description" : "Total elements.",
+            "format" : "int64"
+          },
+          "totalPages" : {
+            "type" : "integer",
+            "description" : "Indicates total pages.",
+            "format" : "int64"
+          }
+        }
+      },
+      "SoftwareTagSpec" : {
+        "required" : [ "displayName", "slug" ],
+        "type" : "object",
+        "properties" : {
+          "color" : {
+            "type" : "string"
+          },
+          "description" : {
+            "type" : "string"
+          },
+          "displayName" : {
+            "type" : "string"
+          },
+          "priority" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "seo" : {
+            "$ref" : "#/components/schemas/SoftwareAppSeo"
+          },
+          "slug" : {
+            "type" : "string"
+          },
+          "visible" : {
+            "type" : "boolean"
+          }
+        }
+      },
+      "SoftwareTagStatus" : {
+        "type" : "object",
+        "properties" : {
+          "appCount" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "observedVersion" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }
+      },
+      "SoftwareTagVo" : {
+        "type" : "object",
+        "properties" : {
+          "appCount" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "color" : {
+            "type" : "string"
+          },
+          "description" : {
+            "type" : "string"
+          },
+          "displayName" : {
+            "type" : "string"
+          },
+          "name" : {
+            "type" : "string"
+          },
+          "priority" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "slug" : {
+            "type" : "string"
+          }
+        },
+        "description" : "A chunk of items."
+      },
+      "SoftwareTagVoList" : {
+        "required" : [ "first", "hasNext", "hasPrevious", "items", "last", "page", "size", "total", "totalPages" ],
+        "type" : "object",
+        "properties" : {
+          "first" : {
+            "type" : "boolean",
+            "description" : "Indicates whether current page is the first page."
+          },
+          "hasNext" : {
+            "type" : "boolean",
+            "description" : "Indicates whether current page has previous page."
+          },
+          "hasPrevious" : {
+            "type" : "boolean",
+            "description" : "Indicates whether current page has previous page."
+          },
+          "items" : {
+            "type" : "array",
+            "description" : "A chunk of items.",
+            "items" : {
+              "$ref" : "#/components/schemas/SoftwareTagVo"
+            }
+          },
+          "last" : {
+            "type" : "boolean",
+            "description" : "Indicates whether current page is the last page."
+          },
+          "page" : {
+            "type" : "integer",
+            "description" : "Page number, starts from 1. If not set or equal to 0, it means no pagination.",
+            "format" : "int32"
+          },
+          "size" : {
+            "type" : "integer",
+            "description" : "Size of each page. If not set or equal to 0, it means no pagination.",
+            "format" : "int32"
+          },
+          "total" : {
+            "type" : "integer",
+            "description" : "Total elements.",
+            "format" : "int64"
+          },
+          "totalPages" : {
+            "type" : "integer",
+            "description" : "Indicates total pages.",
+            "format" : "int64"
+          }
+        }
+      },
+      "SoftwareTopic" : {
+        "required" : [ "apiVersion", "kind", "metadata", "spec" ],
+        "type" : "object",
+        "properties" : {
+          "apiVersion" : {
+            "type" : "string"
+          },
+          "kind" : {
+            "type" : "string"
+          },
+          "metadata" : {
+            "$ref" : "#/components/schemas/Metadata"
+          },
+          "spec" : {
+            "$ref" : "#/components/schemas/SoftwareTopicSpec"
+          },
+          "status" : {
+            "$ref" : "#/components/schemas/SoftwareTopicStatus"
+          }
+        }
+      },
+      "SoftwareTopicCommand" : {
+        "required" : [ "spec" ],
+        "type" : "object",
+        "properties" : {
+          "spec" : {
+            "$ref" : "#/components/schemas/SoftwareTopicSpec"
+          }
+        }
+      },
+      "SoftwareTopicDetailVo" : {
+        "type" : "object",
+        "properties" : {
+          "appCount" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "apps" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/SoftwareAppVo"
+            }
+          },
+          "cover" : {
+            "type" : "string"
+          },
+          "description" : {
+            "type" : "string"
+          },
+          "featured" : {
+            "type" : "boolean"
+          },
+          "items" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/SoftwareTopicItemVo"
+            }
+          },
+          "name" : {
+            "type" : "string"
+          },
+          "priority" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "slug" : {
+            "type" : "string"
+          },
+          "subtitle" : {
+            "type" : "string"
+          },
+          "title" : {
+            "type" : "string"
+          }
+        }
+      },
+      "SoftwareTopicItem" : {
+        "required" : [ "appName" ],
+        "type" : "object",
+        "properties" : {
+          "appName" : {
+            "type" : "string",
+            "description" : "SoftwareApp metadata.name."
+          },
+          "priority" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "reason" : {
+            "type" : "string"
+          }
+        }
+      },
+      "SoftwareTopicItemVo" : {
+        "type" : "object",
+        "properties" : {
+          "cover" : {
+            "type" : "string"
+          },
+          "displayName" : {
+            "type" : "string"
+          },
+          "icon" : {
+            "type" : "string"
+          },
+          "permalink" : {
+            "type" : "string"
+          },
+          "priority" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "reason" : {
+            "type" : "string"
+          },
+          "slug" : {
+            "type" : "string"
+          },
+          "subtitle" : {
+            "type" : "string"
+          },
+          "summary" : {
+            "type" : "string"
+          }
+        }
+      },
+      "SoftwareTopicList" : {
+        "required" : [ "first", "hasNext", "hasPrevious", "items", "last", "page", "size", "total", "totalPages" ],
+        "type" : "object",
+        "properties" : {
+          "first" : {
+            "type" : "boolean",
+            "description" : "Indicates whether current page is the first page."
+          },
+          "hasNext" : {
+            "type" : "boolean",
+            "description" : "Indicates whether current page has previous page."
+          },
+          "hasPrevious" : {
+            "type" : "boolean",
+            "description" : "Indicates whether current page has previous page."
+          },
+          "items" : {
+            "type" : "array",
+            "description" : "A chunk of items.",
+            "items" : {
+              "$ref" : "#/components/schemas/SoftwareTopic"
+            }
+          },
+          "last" : {
+            "type" : "boolean",
+            "description" : "Indicates whether current page is the last page."
+          },
+          "page" : {
+            "type" : "integer",
+            "description" : "Page number, starts from 1. If not set or equal to 0, it means no pagination.",
+            "format" : "int32"
+          },
+          "size" : {
+            "type" : "integer",
+            "description" : "Size of each page. If not set or equal to 0, it means no pagination.",
+            "format" : "int32"
+          },
+          "total" : {
+            "type" : "integer",
+            "description" : "Total elements.",
+            "format" : "int64"
+          },
+          "totalPages" : {
+            "type" : "integer",
+            "description" : "Indicates total pages.",
+            "format" : "int64"
+          }
+        }
+      },
+      "SoftwareTopicSpec" : {
+        "required" : [ "slug", "title" ],
+        "type" : "object",
+        "properties" : {
+          "cover" : {
+            "type" : "string"
+          },
+          "description" : {
+            "type" : "string"
+          },
+          "featured" : {
+            "type" : "boolean"
+          },
+          "items" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/SoftwareTopicItem"
+            }
+          },
+          "priority" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "published" : {
+            "type" : "boolean"
+          },
+          "seo" : {
+            "$ref" : "#/components/schemas/SoftwareAppSeo"
+          },
+          "slug" : {
+            "type" : "string"
+          },
+          "subtitle" : {
+            "type" : "string"
+          },
+          "title" : {
+            "type" : "string"
+          }
+        }
+      },
+      "SoftwareTopicStatus" : {
+        "type" : "object",
+        "properties" : {
+          "appCount" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "observedVersion" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }
+      },
+      "SoftwareTopicVo" : {
+        "type" : "object",
+        "properties" : {
+          "appCount" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "cover" : {
+            "type" : "string"
+          },
+          "description" : {
+            "type" : "string"
+          },
+          "featured" : {
+            "type" : "boolean"
+          },
+          "items" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/SoftwareTopicItemVo"
+            }
+          },
+          "name" : {
+            "type" : "string"
+          },
+          "priority" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "slug" : {
+            "type" : "string"
+          },
+          "subtitle" : {
+            "type" : "string"
+          },
+          "title" : {
+            "type" : "string"
+          }
+        },
+        "description" : "A chunk of items."
+      },
+      "SoftwareTopicVoList" : {
+        "required" : [ "first", "hasNext", "hasPrevious", "items", "last", "page", "size", "total", "totalPages" ],
+        "type" : "object",
+        "properties" : {
+          "first" : {
+            "type" : "boolean",
+            "description" : "Indicates whether current page is the first page."
+          },
+          "hasNext" : {
+            "type" : "boolean",
+            "description" : "Indicates whether current page has previous page."
+          },
+          "hasPrevious" : {
+            "type" : "boolean",
+            "description" : "Indicates whether current page has previous page."
+          },
+          "items" : {
+            "type" : "array",
+            "description" : "A chunk of items.",
+            "items" : {
+              "$ref" : "#/components/schemas/SoftwareTopicVo"
+            }
+          },
+          "last" : {
+            "type" : "boolean",
+            "description" : "Indicates whether current page is the last page."
+          },
+          "page" : {
+            "type" : "integer",
+            "description" : "Page number, starts from 1. If not set or equal to 0, it means no pagination.",
+            "format" : "int32"
+          },
+          "size" : {
+            "type" : "integer",
+            "description" : "Size of each page. If not set or equal to 0, it means no pagination.",
+            "format" : "int32"
+          },
+          "total" : {
+            "type" : "integer",
+            "description" : "Total elements.",
+            "format" : "int64"
+          },
+          "totalPages" : {
+            "type" : "integer",
+            "description" : "Indicates total pages.",
+            "format" : "int64"
+          }
+        }
+      },
+      "SoftwareVersion" : {
+        "required" : [ "apiVersion", "kind", "metadata", "spec" ],
+        "type" : "object",
+        "properties" : {
+          "apiVersion" : {
+            "type" : "string"
+          },
+          "kind" : {
+            "type" : "string"
+          },
+          "metadata" : {
+            "$ref" : "#/components/schemas/Metadata"
+          },
+          "spec" : {
+            "$ref" : "#/components/schemas/SoftwareVersionSpec"
+          },
+          "status" : {
+            "$ref" : "#/components/schemas/SoftwareVersionStatus"
+          }
+        }
+      },
+      "SoftwareVersionChecksum" : {
+        "type" : "object",
+        "properties" : {
+          "md5" : {
+            "type" : "string"
+          },
+          "sha256" : {
+            "type" : "string"
+          }
+        }
+      },
+      "SoftwareVersionCommand" : {
+        "required" : [ "spec" ],
+        "type" : "object",
+        "properties" : {
+          "spec" : {
+            "$ref" : "#/components/schemas/SoftwareVersionSpec"
+          }
+        }
+      },
+      "SoftwareVersionList" : {
+        "required" : [ "first", "hasNext", "hasPrevious", "items", "last", "page", "size", "total", "totalPages" ],
+        "type" : "object",
+        "properties" : {
+          "first" : {
+            "type" : "boolean",
+            "description" : "Indicates whether current page is the first page."
+          },
+          "hasNext" : {
+            "type" : "boolean",
+            "description" : "Indicates whether current page has previous page."
+          },
+          "hasPrevious" : {
+            "type" : "boolean",
+            "description" : "Indicates whether current page has previous page."
+          },
+          "items" : {
+            "type" : "array",
+            "description" : "A chunk of items.",
+            "items" : {
+              "$ref" : "#/components/schemas/SoftwareVersion"
+            }
+          },
+          "last" : {
+            "type" : "boolean",
+            "description" : "Indicates whether current page is the last page."
+          },
+          "page" : {
+            "type" : "integer",
+            "description" : "Page number, starts from 1. If not set or equal to 0, it means no pagination.",
+            "format" : "int32"
+          },
+          "size" : {
+            "type" : "integer",
+            "description" : "Size of each page. If not set or equal to 0, it means no pagination.",
+            "format" : "int32"
+          },
+          "total" : {
+            "type" : "integer",
+            "description" : "Total elements.",
+            "format" : "int64"
+          },
+          "totalPages" : {
+            "type" : "integer",
+            "description" : "Indicates total pages.",
+            "format" : "int64"
+          }
+        }
+      },
+      "SoftwareVersionSpec" : {
+        "required" : [ "appName", "version" ],
+        "type" : "object",
+        "properties" : {
+          "appName" : {
+            "type" : "string",
+            "description" : "SoftwareApp metadata.name."
+          },
+          "architectures" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "build" : {
+            "type" : "string"
+          },
+          "changelog" : {
+            "type" : "string"
+          },
+          "checksum" : {
+            "$ref" : "#/components/schemas/SoftwareVersionChecksum"
+          },
+          "installGuide" : {
+            "type" : "string"
+          },
+          "installWarnings" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "locale" : {
+            "type" : "string"
+          },
+          "maxOsVersion" : {
+            "type" : "string"
+          },
+          "minOsVersion" : {
+            "type" : "string"
+          },
+          "releaseDate" : {
+            "type" : "string",
+            "format" : "date"
+          },
+          "sizeBytes" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "status" : {
+            "type" : "string"
+          },
+          "version" : {
+            "type" : "string"
+          }
+        }
+      },
+      "SoftwareVersionStatus" : {
+        "type" : "object",
+        "properties" : {
+          "assetCount" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "downloadCount" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "observedAppName" : {
+            "type" : "string"
+          },
+          "observedVersion" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "primaryAssetName" : {
+            "type" : "string"
+          }
+        }
+      },
+      "SoftwareVersionVo" : {
+        "type" : "object",
+        "properties" : {
+          "architectures" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "assetCount" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "build" : {
+            "type" : "string"
+          },
+          "changelog" : {
+            "type" : "string"
+          },
+          "downloadCount" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "installGuide" : {
+            "type" : "string"
+          },
+          "installWarnings" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "locale" : {
+            "type" : "string"
+          },
+          "localeLabel" : {
+            "type" : "string"
+          },
+          "maxOsVersion" : {
+            "type" : "string"
+          },
+          "md5" : {
+            "type" : "string"
+          },
+          "minOsDisplay" : {
+            "type" : "string"
+          },
+          "minOsVersion" : {
+            "type" : "string"
+          },
+          "name" : {
+            "type" : "string"
+          },
+          "primaryAssetName" : {
+            "type" : "string"
+          },
+          "releaseDate" : {
+            "type" : "string",
+            "format" : "date"
+          },
+          "releaseDateText" : {
+            "type" : "string"
+          },
+          "sha256" : {
+            "type" : "string"
+          },
+          "sizeBytes" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "sizeText" : {
+            "type" : "string"
+          },
+          "status" : {
+            "type" : "string"
+          },
+          "version" : {
+            "type" : "string"
+          }
+        }
+      },
+      "TestOperation" : {
+        "required" : [ "op", "path", "value" ],
+        "type" : "object",
+        "properties" : {
+          "op" : {
+            "type" : "string",
+            "enum" : [ "test" ]
+          },
+          "path" : {
+            "pattern" : "^(/[^/~]*(~[01][^/~]*)*)*$",
+            "type" : "string",
+            "description" : "A JSON Pointer path pointing to the location to move/copy from.",
+            "example" : "/a/b/c"
+          },
+          "value" : {
+            "description" : "Value can be any JSON value"
+          }
+        }
+      }
+    },
+    "securitySchemes" : {
+      "basicAuth" : {
+        "scheme" : "basic",
+        "type" : "http"
+      },
+      "bearerAuth" : {
+        "bearerFormat" : "JWT",
+        "scheme" : "bearer",
+        "type" : "http"
+      }
+    }
+  }
+}

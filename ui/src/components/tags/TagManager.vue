@@ -31,6 +31,7 @@ import ConsoleStatsGrid from '@/components/console/ConsoleStatsGrid.vue'
 import ConsoleTableCard from '@/components/console/ConsoleTableCard.vue'
 import ConsoleTextButton from '@/components/console/ConsoleTextButton.vue'
 import ConsoleToolbar from '@/components/console/ConsoleToolbar.vue'
+import { useDebouncedValue } from '@/composables/useDebouncedValue'
 import {
   buildTagRows,
   buildTagStats,
@@ -51,6 +52,8 @@ const props = defineProps<{
   deletingName: string
   editingName: string
   draft: SoftwareTag
+  total?: number
+  remote?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -61,11 +64,19 @@ const emit = defineEmits<{
   save: [tag: SoftwareTag]
   'selection-change': [selection: { count: number; names: string[]; titles: string[] }]
   'batch-delete': []
+  'query-change': [query: {
+    page: number
+    size: number
+    keyword: string
+    status: TagStatusFilter
+    sort: TagSortKey
+  }]
 }>()
 
 const page = ref(1)
 const size = ref(20)
 const keyword = ref('')
+const debouncedKeyword = useDebouncedValue(keyword)
 const selectedStatus = ref<TagStatusFilter>('')
 const selectedSort = ref<TagSortKey>('usage-desc')
 const selectedNames = ref<string[]>([])
@@ -96,18 +107,26 @@ const tagColorPresets = [
 const rows = computed(() => buildTagRows(props.tags))
 const stats = computed(() => buildTagStats(props.tags))
 const filteredRows = computed(() =>
-  sortTagRows(
-    filterTagRows(rows.value, {
-      keyword: keyword.value,
-      status: selectedStatus.value,
-    }),
-    selectedSort.value,
-  ),
+  props.remote
+    ? rows.value
+    : sortTagRows(
+        filterTagRows(rows.value, {
+          keyword: keyword.value,
+          status: selectedStatus.value,
+        }),
+        selectedSort.value,
+      ),
 )
 const pagedRows = computed(() => {
+  if (props.remote) {
+    return filteredRows.value
+  }
   const start = (page.value - 1) * size.value
   return filteredRows.value.slice(start, start + size.value)
 })
+const effectiveTotal = computed(() =>
+  props.remote ? props.total || 0 : filteredRows.value.length,
+)
 const allVisibleSelected = computed(
   () =>
     Boolean(pagedRows.value.length) &&
@@ -216,8 +235,30 @@ function selectedTagTitles() {
   return selectedNames.value.map((name) => titleByName.get(name) || name)
 }
 
-watch([keyword, selectedStatus, selectedSort, size], () => {
+watch([debouncedKeyword, selectedStatus, selectedSort, size], () => {
   page.value = 1
+})
+
+watch(
+  [page, size, debouncedKeyword, selectedStatus, selectedSort],
+  () => {
+    if (props.remote) {
+      emit('query-change', {
+        page: page.value,
+        size: size.value,
+        keyword: debouncedKeyword.value,
+        status: selectedStatus.value,
+        sort: selectedSort.value,
+      })
+    }
+  },
+)
+
+watch(effectiveTotal, (value) => {
+  const lastPage = Math.max(1, Math.ceil(value / size.value))
+  if (page.value > lastPage) {
+    page.value = lastPage
+  }
 })
 
 watch(
@@ -272,8 +313,8 @@ defineExpose({
       <ConsoleStatCard
         tone="violet"
         label="标签总数"
-        :value="formatTagNumber(stats.total)"
-        meta="所有标签的总数"
+        :value="formatTagNumber(remote ? effectiveTotal : stats.total)"
+        :meta="remote ? `当前页 ${formatTagNumber(rows.length)}` : '所有标签的总数'"
       >
         <template #icon>
           <IconLink />
@@ -283,7 +324,7 @@ defineExpose({
         tone="green"
         label="已使用"
         :value="formatTagNumber(stats.used)"
-        meta="已关联软件的标签"
+        :meta="remote ? '当前页已关联软件' : '已关联软件的标签'"
       >
         <template #icon>
           <IconCheckboxCircle />
@@ -293,7 +334,7 @@ defineExpose({
         tone="orange"
         label="未使用"
         :value="formatTagNumber(stats.unused)"
-        meta="未关联软件的标签"
+        :meta="remote ? '当前页未关联软件' : '未关联软件的标签'"
       >
         <template #icon>
           <IconStopCircle />
@@ -303,7 +344,7 @@ defineExpose({
         tone="blue"
         label="关联软件数"
         :value="formatTagNumber(stats.linkedApps)"
-        meta="标签关联的软件总数"
+        :meta="remote ? '当前页关联总数' : '标签关联的软件总数'"
       >
         <template #icon>
           <IconClipboardLine />
@@ -444,11 +485,11 @@ defineExpose({
 
       <template v-if="rows.length" #footer>
         <div class="tag-pagination">
-          <span>共 {{ formatTagNumber(filteredRows.length) }} 个标签</span>
+          <span>共 {{ formatTagNumber(effectiveTotal) }} 个标签</span>
           <VPagination
             v-model:page="page"
             v-model:size="size"
-            :total="filteredRows.length"
+            :total="effectiveTotal"
             :size-options="[10, 20, 50]"
           />
         </div>

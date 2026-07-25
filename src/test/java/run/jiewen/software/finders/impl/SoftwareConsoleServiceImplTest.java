@@ -8,7 +8,10 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import java.nio.charset.StandardCharsets;
+import java.time.LocalDate;
 import java.util.List;
+import java.util.Map;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
@@ -23,6 +26,7 @@ import run.halo.app.extension.ListResult;
 import run.halo.app.extension.Metadata;
 import run.halo.app.extension.PageRequest;
 import run.halo.app.extension.ReactiveExtensionClient;
+import run.halo.app.extension.Secret;
 import run.jiewen.software.extension.DownloadAsset;
 import run.jiewen.software.extension.SoftwareApp;
 import run.jiewen.software.extension.SoftwareCategory;
@@ -135,6 +139,70 @@ class SoftwareConsoleServiceImplTest {
     }
 
     @Test
+    void patchingAppPreservesServerStatusAndUnspecifiedSpecFields() {
+        var current = existingApp("app-1");
+        current.getMetadata().setVersion(7L);
+        current.getSpec().setVendor("Acme");
+        current.getSpec().setPublished(true);
+        var status = new SoftwareApp.Status();
+        status.setDownloadCount(42L);
+        current.setStatus(status);
+        when(client.fetch(SoftwareApp.class, "app-1")).thenReturn(Mono.just(current));
+        when(client.listBy(eq(SoftwareApp.class), any(ListOptions.class), any(PageRequest.class)))
+            .thenReturn(Mono.just(new ListResult<>(1, 2, 1, List.of(current))));
+        when(client.update(any(SoftwareApp.class))).thenAnswer(invocation ->
+            Mono.just(invocation.getArgument(0)));
+
+        var patch = new SoftwareApp();
+        var patchSpec = new SoftwareApp.Spec();
+        patchSpec.setDisplayName("Updated name");
+        patch.setSpec(patchSpec);
+
+        StepVerifier.create(service.updateApp("app-1", patch))
+            .assertNext(app -> {
+                assertThat(app.getMetadata().getName()).isEqualTo("app-1");
+                assertThat(app.getMetadata().getVersion()).isEqualTo(7L);
+                assertThat(app.getSpec().getSlug()).isEqualTo("cleanmymac-x");
+                assertThat(app.getSpec().getVendor()).isEqualTo("Acme");
+                assertThat(app.getSpec().getPublished()).isTrue();
+                assertThat(app.getSpec().getDisplayName()).isEqualTo("Updated name");
+                assertThat(app.getStatus()).isSameAs(status);
+                assertThat(app.getStatus().getDownloadCount()).isEqualTo(42L);
+            })
+            .verifyComplete();
+    }
+
+    @Test
+    void replacingAppClearsOmittedOptionalFieldsAndPreservesServerState() {
+        var current = existingApp("app-1");
+        current.getMetadata().setVersion(7L);
+        current.getSpec().setVendor("Acme");
+        current.getSpec().setCategoryName("category-1");
+        var status = new SoftwareApp.Status();
+        status.setDownloadCount(42L);
+        current.setStatus(status);
+        when(client.fetch(SoftwareApp.class, "app-1")).thenReturn(Mono.just(current));
+        when(client.listBy(eq(SoftwareApp.class), any(ListOptions.class), any(PageRequest.class)))
+            .thenReturn(Mono.just(new ListResult<>(1, 2, 1, List.of(current))));
+        when(client.update(any(SoftwareApp.class))).thenAnswer(invocation ->
+            Mono.just(invocation.getArgument(0)));
+
+        var replacement = newApp("cleanmymac-x");
+        replacement.getSpec().setDisplayName("Replacement");
+
+        StepVerifier.create(service.replaceApp("app-1", replacement))
+            .assertNext(app -> {
+                assertThat(app.getMetadata().getName()).isEqualTo("app-1");
+                assertThat(app.getMetadata().getVersion()).isEqualTo(7L);
+                assertThat(app.getSpec().getDisplayName()).isEqualTo("Replacement");
+                assertThat(app.getSpec().getVendor()).isNull();
+                assertThat(app.getSpec().getCategoryName()).isNull();
+                assertThat(app.getStatus()).isSameAs(status);
+            })
+            .verifyComplete();
+    }
+
+    @Test
     void rejectsInvalidAppSlug() {
         StepVerifier.create(service.createApp(newApp("Clean My Mac")))
             .expectError(ServerWebInputException.class)
@@ -146,6 +214,9 @@ class SoftwareConsoleServiceImplTest {
     @Test
     void createsVersionOnlyForExistingApp() {
         when(client.fetch(SoftwareApp.class, "app-1")).thenReturn(Mono.just(existingApp("app-1")));
+        when(client.listBy(eq(SoftwareVersion.class), any(ListOptions.class),
+            any(PageRequest.class)))
+            .thenReturn(Mono.just(new ListResult<>(1, 2, 0, List.of())));
         when(client.create(any(SoftwareVersion.class))).thenAnswer(invocation ->
             Mono.just(invocation.getArgument(0)));
 
@@ -153,6 +224,81 @@ class SoftwareConsoleServiceImplTest {
             .assertNext(version -> {
                 assertThat(version.getMetadata().getGenerateName()).isEqualTo("software-version-");
                 assertThat(version.getSpec().getAppName()).isEqualTo("app-1");
+                assertThat(version.getSpec().getStatus()).isEqualTo("draft");
+            })
+            .verifyComplete();
+    }
+
+    @Test
+    void patchingVersionPreservesNestedChecksumAndServerStatus() {
+        var current = existingVersion("version-1", "app-1");
+        current.getMetadata().setVersion(3L);
+        current.getSpec().setStatus("released");
+        var checksum = new SoftwareVersion.Checksum();
+        checksum.setSha256("a".repeat(64));
+        checksum.setMd5("b".repeat(32));
+        current.getSpec().setChecksum(checksum);
+        var status = new SoftwareVersion.Status();
+        status.setAssetCount(2);
+        current.setStatus(status);
+        when(client.fetch(SoftwareVersion.class, "version-1")).thenReturn(Mono.just(current));
+        when(client.fetch(SoftwareApp.class, "app-1")).thenReturn(Mono.just(existingApp("app-1")));
+        when(client.listBy(eq(SoftwareVersion.class), any(ListOptions.class),
+            any(PageRequest.class)))
+            .thenReturn(Mono.just(new ListResult<>(1, 2, 1, List.of(current))));
+        when(client.update(any(SoftwareVersion.class))).thenAnswer(invocation ->
+            Mono.just(invocation.getArgument(0)));
+
+        var patch = new SoftwareVersion();
+        var patchSpec = new SoftwareVersion.Spec();
+        patchSpec.setChangelog("Security fixes");
+        var checksumPatch = new SoftwareVersion.Checksum();
+        checksumPatch.setSha256("c".repeat(64));
+        patchSpec.setChecksum(checksumPatch);
+        patch.setSpec(patchSpec);
+
+        StepVerifier.create(service.updateVersion("version-1", patch))
+            .assertNext(version -> {
+                assertThat(version.getMetadata().getName()).isEqualTo("version-1");
+                assertThat(version.getMetadata().getVersion()).isEqualTo(3L);
+                assertThat(version.getSpec().getAppName()).isEqualTo("app-1");
+                assertThat(version.getSpec().getVersion()).isEqualTo("1.0.0");
+                assertThat(version.getSpec().getStatus()).isEqualTo("released");
+                assertThat(version.getSpec().getChangelog()).isEqualTo("Security fixes");
+                assertThat(version.getSpec().getChecksum().getSha256())
+                    .isEqualTo("c".repeat(64));
+                assertThat(version.getSpec().getChecksum().getMd5())
+                    .isEqualTo("b".repeat(32));
+                assertThat(version.getStatus()).isSameAs(status);
+            })
+            .verifyComplete();
+    }
+
+    @Test
+    void replacingVersionClearsOptionalFieldsAndPreservesServerStatus() {
+        var current = existingVersion("version-1", "app-1");
+        current.getSpec().setBuild("100");
+        current.getSpec().setReleaseDate(LocalDate.of(2026, 7, 26));
+        var checksum = new SoftwareVersion.Checksum();
+        checksum.setSha256("a".repeat(64));
+        current.getSpec().setChecksum(checksum);
+        var status = new SoftwareVersion.Status();
+        status.setAssetCount(2);
+        current.setStatus(status);
+        when(client.fetch(SoftwareVersion.class, "version-1")).thenReturn(Mono.just(current));
+        when(client.fetch(SoftwareApp.class, "app-1")).thenReturn(Mono.just(existingApp("app-1")));
+        when(client.listBy(eq(SoftwareVersion.class), any(ListOptions.class),
+            any(PageRequest.class)))
+            .thenReturn(Mono.just(new ListResult<>(1, 2, 1, List.of(current))));
+        when(client.update(any(SoftwareVersion.class))).thenAnswer(invocation ->
+            Mono.just(invocation.getArgument(0)));
+
+        StepVerifier.create(service.replaceVersion("version-1", newVersion("app-1", "1.0.0")))
+            .assertNext(version -> {
+                assertThat(version.getSpec().getBuild()).isNull();
+                assertThat(version.getSpec().getReleaseDate()).isNull();
+                assertThat(version.getSpec().getChecksum()).isNull();
+                assertThat(version.getStatus()).isSameAs(status);
             })
             .verifyComplete();
     }
@@ -179,8 +325,116 @@ class SoftwareConsoleServiceImplTest {
         StepVerifier.create(service.createDownloadAsset(newDownloadAsset("app-1", "version-1")))
             .assertNext(asset -> {
                 assertThat(asset.getMetadata().getGenerateName()).isEqualTo("download-asset-");
-                assertThat(asset.getSpec().getEnabled()).isTrue();
+                assertThat(asset.getSpec().getEnabled()).isFalse();
                 assertThat(asset.getSpec().getPriority()).isZero();
+            })
+            .verifyComplete();
+    }
+
+    @Test
+    void enablesDownloadAssetWithUrlFromReferencedSecret() {
+        when(client.fetch(SoftwareApp.class, "app-1")).thenReturn(Mono.just(existingApp("app-1")));
+        when(client.fetch(SoftwareVersion.class, "version-1"))
+            .thenReturn(Mono.just(existingVersion("version-1", "app-1")));
+        var secret = new Secret();
+        secret.setData(Map.of("url",
+            "https://downloads.example.com/private.dmg".getBytes(StandardCharsets.UTF_8)));
+        when(client.fetch(Secret.class, "download-secret")).thenReturn(Mono.just(secret));
+        when(client.create(any(DownloadAsset.class))).thenAnswer(invocation ->
+            Mono.just(invocation.getArgument(0)));
+
+        var asset = newDownloadAsset("app-1", "version-1");
+        asset.getSpec().setUrl(null);
+        asset.getSpec().setEnabled(true);
+        asset.getSpec().setPasswordSecretName("download-secret");
+
+        StepVerifier.create(service.createDownloadAsset(asset))
+            .assertNext(created -> {
+                assertThat(created.getSpec().getEnabled()).isTrue();
+                assertThat(created.getSpec().getPasswordSecretName()).isEqualTo("download-secret");
+            })
+            .verifyComplete();
+    }
+
+    @Test
+    void patchingDownloadAssetPreservesSecretsAndServerStatus() {
+        var current = existingDownloadAsset("asset-1", "app-1", "version-1");
+        current.getSpec().setUrl("https://example.com/private.dmg");
+        current.getSpec().setStorageKey("/attachments/private.dmg");
+        current.getSpec().setExtractionCode("1234");
+        current.getSpec().setPasswordSecretName("software-download-asset-1");
+        var status = new DownloadAsset.Status();
+        status.setDownloadCount(9L);
+        current.setStatus(status);
+        when(client.fetch(DownloadAsset.class, "asset-1")).thenReturn(Mono.just(current));
+        when(client.fetch(SoftwareApp.class, "app-1")).thenReturn(Mono.just(existingApp("app-1")));
+        when(client.fetch(SoftwareVersion.class, "version-1"))
+            .thenReturn(Mono.just(existingVersion("version-1", "app-1")));
+        when(client.fetch(Secret.class, "software-download-asset-1"))
+            .thenReturn(Mono.just(new Secret()));
+        when(client.update(any(DownloadAsset.class))).thenAnswer(invocation ->
+            Mono.just(invocation.getArgument(0)));
+
+        var patch = new DownloadAsset();
+        var patchSpec = new DownloadAsset.Spec();
+        patchSpec.setTitle("Mirror DMG");
+        patch.setSpec(patchSpec);
+
+        StepVerifier.create(service.updateDownloadAsset("asset-1", patch))
+            .assertNext(asset -> {
+                assertThat(asset.getSpec().getAppName()).isEqualTo("app-1");
+                assertThat(asset.getSpec().getVersionName()).isEqualTo("version-1");
+                assertThat(asset.getSpec().getTitle()).isEqualTo("Mirror DMG");
+                assertThat(asset.getSpec().getUrl())
+                    .isEqualTo("https://example.com/private.dmg");
+                assertThat(asset.getSpec().getStorageKey())
+                    .isEqualTo("/attachments/private.dmg");
+                assertThat(asset.getSpec().getExtractionCode()).isEqualTo("1234");
+                assertThat(asset.getSpec().getPasswordSecretName())
+                    .isEqualTo("software-download-asset-1");
+                assertThat(asset.getStatus()).isSameAs(status);
+                assertThat(asset.getStatus().getDownloadCount()).isEqualTo(9L);
+            })
+            .verifyComplete();
+    }
+
+    @Test
+    void replacingDownloadAssetClearsOrdinaryFieldsButPreservesSecretsAndStatus() {
+        var current = existingDownloadAsset("asset-1", "app-1", "version-1");
+        current.getSpec().setType("dmg");
+        current.getSpec().setRegion("global");
+        current.getSpec().setUrl("https://example.com/private.dmg");
+        current.getSpec().setStorageKey("/attachments/private.dmg");
+        current.getSpec().setExtractionCode("1234");
+        current.getSpec().setPasswordSecretName("software-download-asset-1");
+        var status = new DownloadAsset.Status();
+        status.setDownloadCount(9L);
+        current.setStatus(status);
+        when(client.fetch(DownloadAsset.class, "asset-1")).thenReturn(Mono.just(current));
+        when(client.fetch(SoftwareApp.class, "app-1")).thenReturn(Mono.just(existingApp("app-1")));
+        when(client.fetch(SoftwareVersion.class, "version-1"))
+            .thenReturn(Mono.just(existingVersion("version-1", "app-1")));
+        when(client.fetch(Secret.class, "software-download-asset-1"))
+            .thenReturn(Mono.just(new Secret()));
+        when(client.update(any(DownloadAsset.class))).thenAnswer(invocation ->
+            Mono.just(invocation.getArgument(0)));
+        var replacement = newDownloadAsset("app-1", "version-1");
+        replacement.getSpec().setTitle("Replacement mirror");
+        replacement.getSpec().setUrl("https://attacker.invalid/ignored.dmg");
+
+        StepVerifier.create(service.replaceDownloadAsset("asset-1", replacement))
+            .assertNext(asset -> {
+                assertThat(asset.getSpec().getTitle()).isEqualTo("Replacement mirror");
+                assertThat(asset.getSpec().getType()).isNull();
+                assertThat(asset.getSpec().getRegion()).isNull();
+                assertThat(asset.getSpec().getUrl())
+                    .isEqualTo("https://example.com/private.dmg");
+                assertThat(asset.getSpec().getStorageKey())
+                    .isEqualTo("/attachments/private.dmg");
+                assertThat(asset.getSpec().getExtractionCode()).isEqualTo("1234");
+                assertThat(asset.getSpec().getPasswordSecretName())
+                    .isEqualTo("software-download-asset-1");
+                assertThat(asset.getStatus()).isSameAs(status);
             })
             .verifyComplete();
     }
@@ -346,6 +600,40 @@ class SoftwareConsoleServiceImplTest {
                 assertThat(stats.getDrafts()).isEqualTo(1);
                 assertThat(stats.getDownloads()).isEqualTo(42);
                 assertThat(stats.getPlatforms()).containsExactly("macOS", "Windows");
+            })
+            .verifyComplete();
+    }
+
+    @Test
+    void aggregatesDownloadAssetStatsAndClampsNegativeCounters() {
+        var enabledProtected = existingDownloadAsset("asset-1", "app-1", "version-1");
+        enabledProtected.getSpec().setEnabled(true);
+        enabledProtected.getSpec().setRequiresLogin(true);
+        var enabledStatus = new DownloadAsset.Status();
+        enabledStatus.setDownloadCount(20L);
+        enabledProtected.setStatus(enabledStatus);
+
+        var disabledProtected = existingDownloadAsset("asset-2", "app-1", "version-1");
+        disabledProtected.getSpec().setEnabled(false);
+        disabledProtected.getSpec().setExtractionCode("1234");
+        var disabledStatus = new DownloadAsset.Status();
+        disabledStatus.setDownloadCount(-2L);
+        disabledProtected.setStatus(disabledStatus);
+
+        var enabledPublic = existingDownloadAsset("asset-3", "app-1", "version-1");
+        enabledPublic.getSpec().setEnabled(true);
+
+        when(client.listAll(eq(DownloadAsset.class), any(ListOptions.class), any()))
+            .thenReturn(reactor.core.publisher.Flux.just(
+                enabledProtected, disabledProtected, enabledPublic));
+
+        StepVerifier.create(service.getDownloadAssetStats())
+            .assertNext(stats -> {
+                assertThat(stats.getTotal()).isEqualTo(3);
+                assertThat(stats.getEnabled()).isEqualTo(2);
+                assertThat(stats.getDisabled()).isEqualTo(1);
+                assertThat(stats.getProtectedCount()).isEqualTo(2);
+                assertThat(stats.getDownloads()).isEqualTo(20);
             })
             .verifyComplete();
     }

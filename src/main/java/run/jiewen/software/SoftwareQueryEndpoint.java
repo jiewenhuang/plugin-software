@@ -2,12 +2,17 @@ package run.jiewen.software;
 
 import static org.springdoc.core.fn.builders.apiresponse.Builder.responseBuilder;
 import static org.springdoc.core.fn.builders.parameter.Builder.parameterBuilder;
+import static org.springdoc.core.fn.builders.requestbody.Builder.requestBodyBuilder;
+import static org.springdoc.core.fn.builders.content.Builder.contentBuilder;
+import static org.springdoc.core.fn.builders.schema.Builder.schemaBuilder;
 import static org.springdoc.webflux.core.fn.SpringdocRouteBuilder.route;
 import static run.halo.app.extension.index.query.Queries.equal;
 
 import io.swagger.v3.oas.annotations.enums.ParameterIn;
 import org.springframework.data.domain.Sort;
 import org.springframework.http.MediaType;
+import org.springframework.http.CacheControl;
+import org.springframework.http.HttpHeaders;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.server.RouterFunction;
 import org.springframework.web.reactive.function.server.ServerRequest;
@@ -20,6 +25,9 @@ import run.halo.app.extension.ListResult;
 import run.halo.app.extension.PageRequest;
 import run.halo.app.extension.PageRequestImpl;
 import run.jiewen.software.finders.SoftwarePublicQueryService;
+import run.jiewen.software.api.DownloadGrantRequest;
+import run.jiewen.software.vo.DownloadGrantVo;
+import run.jiewen.software.vo.DownloadSecurityVo;
 import run.jiewen.software.vo.DownloadAssetVo;
 import run.jiewen.software.vo.SoftwareAppDetailVo;
 import run.jiewen.software.vo.SoftwareAppVo;
@@ -82,6 +90,23 @@ public class SoftwareQueryEndpoint implements CustomEndpoint {
                         .description("Optional DownloadAsset metadata.name.")
                         .required(false))
                     .response(responseBuilder().implementation(DownloadAssetVo.class))
+            )
+            .POST("download-grants", this::grantDownload,
+                builder -> builder.operationId("createSoftwareDownloadGrant")
+                    .description("Validate all gates and issue a short-lived, non-cacheable download grant.")
+                    .tag(appTag)
+                    .requestBody(requestBodyBuilder()
+                        .required(true)
+                        .content(contentBuilder()
+                            .mediaType(MediaType.APPLICATION_JSON_VALUE)
+                            .schema(schemaBuilder().implementation(DownloadGrantRequest.class))))
+                    .response(responseBuilder().implementation(DownloadGrantVo.class))
+            )
+            .GET("download-options", this::getDownloadOptions,
+                builder -> builder.operationId("getSoftwareDownloadOptions")
+                    .description("Get public captcha bootstrap options without Secret metadata.")
+                    .tag(appTag)
+                    .response(responseBuilder().implementation(DownloadSecurityVo.class))
             )
             .GET("categories", this::listCategories,
                 builder -> builder.operationId("querySoftwareCategories")
@@ -158,8 +183,34 @@ public class SoftwareQueryEndpoint implements CustomEndpoint {
             .orElseGet(() -> softwarePublicQueryService.getPrimaryDownloadAsset(slug));
         return selectedAsset
             .flatMap(asset -> ServerResponse.ok()
+                .cacheControl(CacheControl.noStore())
+                .header(HttpHeaders.PRAGMA, "no-cache")
+                .header(HttpHeaders.VARY, HttpHeaders.COOKIE, HttpHeaders.AUTHORIZATION)
                 .contentType(MediaType.APPLICATION_JSON)
                 .bodyValue(asset));
+    }
+
+    private Mono<ServerResponse> grantDownload(ServerRequest request) {
+        var remoteAddress = request.remoteAddress()
+            .map(address -> address.getAddress().getHostAddress())
+            .orElse(null);
+        return request.bodyToMono(DownloadGrantRequest.class)
+            .flatMap(command -> softwarePublicQueryService.grantDownload(command, remoteAddress))
+            .flatMap(grant -> ServerResponse.ok()
+                .cacheControl(CacheControl.noStore())
+                .header(HttpHeaders.PRAGMA, "no-cache")
+                .header(HttpHeaders.VARY, HttpHeaders.COOKIE, HttpHeaders.AUTHORIZATION)
+                .contentType(MediaType.APPLICATION_JSON)
+                .bodyValue(grant));
+    }
+
+    private Mono<ServerResponse> getDownloadOptions(ServerRequest request) {
+        return softwarePublicQueryService.getDownloadSecurityOptions()
+            .flatMap(options -> ServerResponse.ok()
+                .cacheControl(CacheControl.noStore())
+                .header(HttpHeaders.PRAGMA, "no-cache")
+                .contentType(MediaType.APPLICATION_JSON)
+                .bodyValue(options));
     }
 
     private Mono<ServerResponse> listCategories(ServerRequest request) {

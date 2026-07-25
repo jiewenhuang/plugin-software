@@ -89,6 +89,8 @@ public class SoftwareAppVo {
 
     String platform;
 
+    List<String> platforms;
+
     List<String> architectures;
 
     String licenseType;
@@ -142,6 +144,7 @@ public class SoftwareAppVo {
             .latestReleaseDateShort(shortDate(status == null ? null : status.getLatestReleaseDate()))
             .latestReleaseWeekday(weekday(status == null ? null : status.getLatestReleaseDate()))
             .platform(spec == null ? null : spec.getPlatform())
+            .platforms(spec == null ? List.of() : normalizedPlatforms(spec))
             .architectures(spec == null ? null : spec.getArchitectures())
             .licenseType(spec == null ? null : spec.getLicenseType())
             .locale(spec == null ? null : spec.getLocale())
@@ -153,6 +156,23 @@ public class SoftwareAppVo {
             .publishedAt(spec == null ? null : spec.getPublishedAt())
             .seo(spec == null ? null : SoftwareSeoVo.from(spec.getSeo()))
             .build();
+    }
+
+    private static List<String> normalizedPlatforms(SoftwareApp.Spec spec) {
+        if (spec.getPlatforms() != null) {
+            return spec.getPlatforms().stream()
+                .filter(value -> value != null && !value.isBlank())
+                .map(String::trim)
+                .distinct()
+                .toList();
+        }
+        if (spec.getPlatform() == null || spec.getPlatform().isBlank()) {
+            return List.of();
+        }
+        return java.util.Arrays.stream(spec.getPlatform().split("[,，/\\s]+"))
+            .filter(value -> !value.isBlank())
+            .distinct()
+            .toList();
     }
 
     private static String compactCount(Long value) {

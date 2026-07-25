@@ -5,7 +5,7 @@ import lombok.Value;
 import run.jiewen.software.extension.DownloadAsset;
 
 @Value
-@Builder
+@Builder(toBuilder = true)
 public class DownloadAssetVo {
 
     String name;
@@ -34,8 +34,9 @@ public class DownloadAssetVo {
         return from(asset, false);
     }
 
-    public static DownloadAssetVo fromDownloadGate(DownloadAsset asset) {
-        return from(asset, true);
+    public static DownloadAssetVo fromDownloadGate(DownloadAsset asset, String safeUrl) {
+        var value = from(asset, false);
+        return value.toBuilder().url(safeUrl).build();
     }
 
     private static DownloadAssetVo from(DownloadAsset asset, boolean includeUrl) {

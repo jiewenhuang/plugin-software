@@ -236,3 +236,32 @@ spec:
             - $formkit: text
               name: value
               label: 存储值
+
+    - group: security
+      label: 下载安全
+      formSchema:
+        - $formkit: select
+          name: captchaProvider
+          label: 验证码服务
+          value: turnstile
+          options:
+            - label: Cloudflare Turnstile
+              value: turnstile
+          help: 下载源启用验证码后，授权接口会向此服务校验客户端 token。
+
+        - $formkit: text
+          name: captchaSiteKey
+          label: Turnstile Site Key
+          clearable: true
+          help: 供主题或前端渲染 Turnstile；Secret Key 不要填在这里。
+
+        - $formkit: text
+          name: captchaSecretName
+          label: Halo Secret 名称
+          clearable: true
+          help: Secret 的 data.secret 保存 Turnstile Secret Key。
+
+        - $formkit: text
+          name: captchaSecretKey
+          label: Secret 数据键
+          value: secret
