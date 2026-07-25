@@ -32,7 +32,13 @@ public class SoftwareAppDetailVo {
 
     String categoryName;
 
+    String categoryDisplayName;
+
+    String categorySlug;
+
     List<String> tagNames;
+
+    List<String> tagDisplayNames;
 
     String permalink;
 
@@ -52,7 +58,35 @@ public class SoftwareAppDetailVo {
 
     Long commentCount;
 
+    String downloadCountText;
+
+    String likeCountText;
+
+    String commentCountText;
+
+    String sizeText;
+
+    String sizeValue;
+
+    String sizeUnit;
+
+    String minOsDisplay;
+
+    String latestReleaseDateText;
+
+    String latestReleaseDateShort;
+
+    String latestReleaseWeekday;
+
+    String localeValue;
+
+    String localeUnit;
+
+    String localeLabel;
+
     String platform;
+
+    List<String> architectures;
 
     String licenseType;
 
@@ -84,7 +118,11 @@ public class SoftwareAppDetailVo {
             .summary(app.getSummary())
             .description(app.getDescription())
             .categoryName(app.getCategoryName())
+            .categoryDisplayName(app.getCategoryDisplayName())
+            .categorySlug(app.getCategorySlug())
             .tagNames(app.getTagNames())
+            .tagDisplayNames(app.getTagDisplayNames() == null
+                ? List.of() : app.getTagDisplayNames())
             .permalink(app.getPermalink())
             .latestVersion(app.getLatestVersion())
             .latestVersionName(app.getLatestVersionName())
@@ -94,7 +132,21 @@ public class SoftwareAppDetailVo {
             .downloadCount(app.getDownloadCount())
             .likeCount(app.getLikeCount())
             .commentCount(app.getCommentCount())
+            .downloadCountText(app.getDownloadCountText())
+            .likeCountText(app.getLikeCountText())
+            .commentCountText(app.getCommentCountText())
+            .sizeText(app.getSizeText())
+            .sizeValue(app.getSizeValue())
+            .sizeUnit(app.getSizeUnit())
+            .minOsDisplay(app.getMinOsDisplay())
+            .latestReleaseDateText(app.getLatestReleaseDateText())
+            .latestReleaseDateShort(app.getLatestReleaseDateShort())
+            .latestReleaseWeekday(app.getLatestReleaseWeekday())
+            .localeValue(app.getLocaleValue())
+            .localeUnit(app.getLocaleUnit())
+            .localeLabel(app.getLocaleLabel())
             .platform(app.getPlatform())
+            .architectures(app.getArchitectures())
             .licenseType(app.getLicenseType())
             .locale(app.getLocale())
             .featured(app.getFeatured())

@@ -1,6 +1,8 @@
 package run.jiewen.software;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.util.List;
@@ -9,11 +11,13 @@ import org.springframework.http.HttpStatus;
 import org.springframework.test.web.reactive.server.WebTestClient;
 import org.springframework.web.server.ResponseStatusException;
 import reactor.core.publisher.Mono;
+import run.halo.app.extension.ListOptions;
 import run.halo.app.extension.ListResult;
 import run.jiewen.software.finders.SoftwarePublicQueryService;
 import run.jiewen.software.vo.DownloadAssetVo;
 import run.jiewen.software.vo.SoftwareAppDetailVo;
 import run.jiewen.software.vo.SoftwareAppVo;
+import run.jiewen.software.vo.SoftwareCategoryVo;
 
 class SoftwareQueryEndpointTest {
 
@@ -34,7 +38,26 @@ class SoftwareQueryEndpointTest {
             .expectStatus().isOk()
             .expectBody()
             .jsonPath("$.items[0].slug").isEqualTo("cleanmymac-x")
-            .jsonPath("$.items[0].permalink").isEqualTo("/apps/cleanmymac-x");
+            .jsonPath("$.items[0].permalink").isEqualTo("/soft/cleanmymac-x");
+    }
+
+    @Test
+    void expandsParentCategoryWhenListingApps() {
+        when(service.listCategories(any(), any()))
+            .thenReturn(Mono.just(new ListResult<>(1, 100, 2, List.of(
+                category("media", null), category("video-edit", "media")))));
+        when(service.listApps(any(), any()))
+            .thenReturn(Mono.just(new ListResult<>(1, 20, 1, List.of(appVo()))));
+
+        client.get()
+            .uri("/apps?category=media")
+            .exchange()
+            .expectStatus().isOk();
+
+        var options = org.mockito.ArgumentCaptor.forClass(ListOptions.class);
+        verify(service).listApps(options.capture(), any());
+        assertThat(options.getValue().toString())
+            .contains("spec.categoryName", "media", "video-edit");
     }
 
     @Test
@@ -113,9 +136,18 @@ class SoftwareQueryEndpointTest {
             .name("software-generated-name")
             .slug("cleanmymac-x")
             .displayName("CleanMyMac X")
-            .permalink("/apps/cleanmymac-x")
+            .permalink("/soft/cleanmymac-x")
             .latestVersion("4.15.0")
             .downloadCount(42L)
+            .build();
+    }
+
+    private static SoftwareCategoryVo category(String name, String parentName) {
+        return SoftwareCategoryVo.builder()
+            .name(name)
+            .slug(name)
+            .displayName(name)
+            .parentName(parentName)
             .build();
     }
 

@@ -13,13 +13,12 @@ spec:
           value: true
           help: 关闭后，控制台中的 AI 生成按钮会返回不可用提示。
 
-        - $formkit: aiModelSelector
+        - $formkit: text
           name: languageModelName
-          label: 语言模型
-          modelType: language
+          label: 语言模型名称
           clearable: true
           placeholder: 使用 AI Foundation 默认语言模型
-          help: 留空时使用 AI Foundation 中配置的默认语言模型。
+          help: 可选依赖启用时生效；留空则使用 AI Foundation 中配置的默认语言模型。
 
         - $formkit: number
           name: temperature

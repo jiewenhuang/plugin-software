@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import {
   IconAddCircle,
-  IconArrowDownCircleLine,
   IconCheckboxCircle,
   IconClipboardLine,
   IconClose,

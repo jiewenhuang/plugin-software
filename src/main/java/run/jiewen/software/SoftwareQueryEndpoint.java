@@ -6,6 +6,7 @@ import static org.springdoc.webflux.core.fn.SpringdocRouteBuilder.route;
 import static run.halo.app.extension.index.query.Queries.equal;
 
 import io.swagger.v3.oas.annotations.enums.ParameterIn;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.server.RouterFunction;
@@ -17,6 +18,7 @@ import run.halo.app.extension.GroupVersion;
 import run.halo.app.extension.ListOptions;
 import run.halo.app.extension.ListResult;
 import run.halo.app.extension.PageRequest;
+import run.halo.app.extension.PageRequestImpl;
 import run.jiewen.software.finders.SoftwarePublicQueryService;
 import run.jiewen.software.vo.DownloadAssetVo;
 import run.jiewen.software.vo.SoftwareAppDetailVo;
@@ -28,6 +30,8 @@ import run.jiewen.software.vo.SoftwareTopicVo;
 
 @Component
 public class SoftwareQueryEndpoint implements CustomEndpoint {
+
+    private static final int CATEGORY_PAGE_SIZE = 100;
 
     private final SoftwarePublicQueryService softwarePublicQueryService;
 
@@ -116,7 +120,23 @@ public class SoftwareQueryEndpoint implements CustomEndpoint {
 
     private Mono<ServerResponse> listApps(ServerRequest request) {
         var query = new SoftwarePublicQuery(request.exchange());
-        return softwarePublicQueryService.listApps(query.toListOptions(), query.toPageRequest())
+        if (query.getCategory() == null || query.getCategory().isBlank()) {
+            return renderAppList(query.toListOptions(), query.toPageRequest());
+        }
+        var visibleCategories = ListOptions.builder()
+            .andQuery(equal("spec.visible", true))
+            .build();
+        return softwarePublicQueryService.listCategories(visibleCategories,
+                PageRequestImpl.of(1, CATEGORY_PAGE_SIZE,
+                    Sort.by("spec.priority").ascending()))
+            .flatMap(categories -> renderAppList(
+                query.toListOptions(SoftwareCategoryQuery.namesFor(
+                    query.getCategory(), categories.getItems())),
+                query.toPageRequest()));
+    }
+
+    private Mono<ServerResponse> renderAppList(ListOptions options, PageRequest pageRequest) {
+        return softwarePublicQueryService.listApps(options, pageRequest)
             .flatMap(result -> ServerResponse.ok()
                 .contentType(MediaType.APPLICATION_JSON)
                 .bodyValue(result));

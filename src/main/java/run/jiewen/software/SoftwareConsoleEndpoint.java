@@ -24,9 +24,6 @@ import run.jiewen.software.extension.SoftwareCategory;
 import run.jiewen.software.extension.SoftwareTag;
 import run.jiewen.software.extension.SoftwareTopic;
 import run.jiewen.software.extension.SoftwareVersion;
-import run.jiewen.software.ai.SoftwareAiService;
-import run.jiewen.software.ai.SoftwareAppAiSuggestion;
-import run.jiewen.software.ai.SoftwareAppAiSuggestionRequest;
 import run.jiewen.software.finders.SoftwareConsoleService;
 import run.jiewen.software.vo.SoftwareConsoleStatsVo;
 
@@ -34,13 +31,11 @@ import run.jiewen.software.vo.SoftwareConsoleStatsVo;
 public class SoftwareConsoleEndpoint implements CustomEndpoint {
 
     private final SoftwareConsoleService softwareConsoleService;
-    private final SoftwareAiService softwareAiService;
     private final ReactiveSettingFetcher settingFetcher;
 
     public SoftwareConsoleEndpoint(SoftwareConsoleService softwareConsoleService,
-        SoftwareAiService softwareAiService, ReactiveSettingFetcher settingFetcher) {
+        ReactiveSettingFetcher settingFetcher) {
         this.softwareConsoleService = softwareConsoleService;
-        this.softwareAiService = softwareAiService;
         this.settingFetcher = settingFetcher;
     }
 
@@ -53,25 +48,12 @@ public class SoftwareConsoleEndpoint implements CustomEndpoint {
         final var tagTag = "console.api.software.jiewen.run/v1alpha1/SoftwareTag";
         final var topicTag = "console.api.software.jiewen.run/v1alpha1/SoftwareTopic";
         final var optionTag = "console.api.software.jiewen.run/v1alpha1/SoftwareOptions";
-        final var aiTag = "console.api.software.jiewen.run/v1alpha1/SoftwareAi";
         return route()
             .GET("options", this::getOptions,
                 builder -> builder.operationId("GetSoftwareOptions")
                     .description("Get software plugin option settings for Console.")
                     .tag(optionTag)
                     .response(responseBuilder().implementation(SoftwareOptions.class)))
-            .POST("ai/apps/suggestions", this::suggestApp,
-                builder -> builder.operationId("SuggestSoftwareAppByAi")
-                    .description("Generate software app SEO and content suggestions by AI.")
-                    .tag(aiTag)
-                    .requestBody(requestBodyBuilder()
-                        .required(true)
-                        .content(contentBuilder()
-                            .mediaType(MediaType.APPLICATION_JSON_VALUE)
-                            .schema(schemaBuilder()
-                                .implementation(SoftwareAppAiSuggestionRequest.class))))
-                    .response(responseBuilder().implementation(SoftwareAppAiSuggestion.class)))
-
             .GET("apps", this::listApps,
                 builder -> builder.operationId("ListSoftwareApps")
                     .description("List software apps for Console.")
@@ -198,13 +180,6 @@ public class SoftwareConsoleEndpoint implements CustomEndpoint {
             .flatMap(options -> ServerResponse.ok()
                 .contentType(MediaType.APPLICATION_JSON)
                 .bodyValue(options));
-    }
-
-    private Mono<ServerResponse> suggestApp(ServerRequest request) {
-        return request.bodyToMono(SoftwareAppAiSuggestionRequest.class)
-            .flatMap(body -> softwareAiService.suggestApp(body.getApp(), body.getInstruction(),
-                body.target()))
-            .flatMap(suggestion -> ServerResponse.ok().bodyValue(suggestion));
     }
 
     private Mono<ServerResponse> getApp(ServerRequest request) {

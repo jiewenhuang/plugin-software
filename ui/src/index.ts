@@ -2,6 +2,7 @@ import { definePlugin } from '@halo-dev/ui-shared'
 import { IconComputer } from '@halo-dev/components'
 import { markRaw } from 'vue'
 import { RouterView } from 'vue-router'
+import { createSoftwareCommentSubjectRefProvider } from '@/comment-subject'
 
 export default definePlugin({
   components: {},
@@ -126,5 +127,7 @@ export default definePlugin({
       },
     },
   ],
-  extensionPoints: {},
+  extensionPoints: {
+    'comment:subject-ref:create': () => [createSoftwareCommentSubjectRefProvider()],
+  },
 })

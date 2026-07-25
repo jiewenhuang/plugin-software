@@ -8,6 +8,7 @@ import static run.halo.app.extension.index.query.Queries.equal;
 import static run.halo.app.extension.router.selector.SelectorUtil.labelAndFieldSelectorToListOptions;
 
 import io.swagger.v3.oas.annotations.enums.ParameterIn;
+import java.util.List;
 import org.springdoc.core.fn.builders.operation.Builder;
 import org.springframework.web.server.ServerWebInputException;
 import org.springframework.web.server.ServerWebExchange;
@@ -65,13 +66,23 @@ public class SoftwarePublicQuery extends SortableRequest {
 
     @Override
     public ListOptions toListOptions() {
+        return buildListOptions(null);
+    }
+
+    public ListOptions toListOptions(List<String> categoryNames) {
+        return buildListOptions(categoryNames);
+    }
+
+    private ListOptions buildListOptions(List<String> categoryNames) {
         var listOptions =
             labelAndFieldSelectorToListOptions(getLabelSelector(), getFieldSelector());
         Condition query = equal("spec.published", true);
         if (hasText(getKeyword())) {
             query = and(query, contains("spec.displayName", getKeyword()));
         }
-        if (hasText(getCategory())) {
+        if (categoryNames != null && !categoryNames.isEmpty()) {
+            query = and(query, SoftwareCategoryQuery.condition(categoryNames));
+        } else if (categoryNames == null && hasText(getCategory())) {
             query = and(query, equal("spec.categoryName", getCategory()));
         }
         if (hasText(getTag())) {

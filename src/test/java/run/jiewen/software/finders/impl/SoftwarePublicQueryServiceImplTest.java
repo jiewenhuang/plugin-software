@@ -2,7 +2,9 @@ package run.jiewen.software.finders.impl;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -14,20 +16,26 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.ReactiveSecurityContextHolder;
 import org.springframework.web.server.ResponseStatusException;
 import reactor.core.publisher.Mono;
+import reactor.core.publisher.Flux;
 import reactor.test.StepVerifier;
 import run.halo.app.extension.ListOptions;
 import run.halo.app.extension.ListResult;
 import run.halo.app.extension.Metadata;
 import run.halo.app.extension.PageRequest;
 import run.halo.app.extension.ReactiveExtensionClient;
+import run.jiewen.software.ai.SoftwareHtmlSanitizer;
 import run.jiewen.software.extension.DownloadAsset;
 import run.jiewen.software.extension.SoftwareApp;
+import run.jiewen.software.extension.SoftwareCategory;
+import run.jiewen.software.extension.SoftwareTag;
+import run.jiewen.software.extension.SoftwareTopic;
 import run.jiewen.software.extension.SoftwareVersion;
 import run.jiewen.software.vo.DownloadAssetVo;
 import run.jiewen.software.vo.SoftwareAppVo;
@@ -37,6 +45,9 @@ class SoftwarePublicQueryServiceImplTest {
 
     @Mock
     ReactiveExtensionClient client;
+
+    @Spy
+    SoftwareHtmlSanitizer htmlSanitizer = new SoftwareHtmlSanitizer();
 
     @InjectMocks
     SoftwarePublicQueryServiceImpl service;
@@ -51,7 +62,7 @@ class SoftwarePublicQueryServiceImplTest {
                 assertThat(app.getName()).isEqualTo("software-generated-name");
                 assertThat(app.getSlug()).isEqualTo("cleanmymac-x");
                 assertThat(app.getDisplayName()).isEqualTo("CleanMyMac X");
-                assertThat(app.getPermalink()).isEqualTo("/apps/cleanmymac-x");
+                assertThat(app.getPermalink()).isEqualTo("/soft/cleanmymac-x");
                 assertThat(app.getScreenshots()).containsExactly("/upload/screen-1.png",
                     "/upload/screen-2.png");
                 assertThat(app.getLatestVersion()).isEqualTo("4.15.0");
@@ -63,6 +74,22 @@ class SoftwarePublicQueryServiceImplTest {
         verify(client).listBy(eq(SoftwareApp.class), optionsCaptor.capture(),
             any(PageRequest.class));
         assertThat(optionsCaptor.getValue().toString()).contains("spec.slug", "cleanmymac-x");
+    }
+
+    @Test
+    void sanitizesRichTextReturnedByPublicQueries() {
+        var app = app();
+        app.getSpec().setDescription(
+            "<p>Safe copy</p><script>alert(1)</script><a href=\"javascript:alert(1)\">link</a>");
+        when(client.listBy(eq(SoftwareApp.class), any(ListOptions.class), any(PageRequest.class)))
+            .thenReturn(Mono.just(new ListResult<>(1, 1, 1, List.of(app))));
+
+        StepVerifier.create(service.getAppBySlug("cleanmymac-x"))
+            .assertNext(result -> {
+                assertThat(result.getDescription()).contains("<p>Safe copy</p>");
+                assertThat(result.getDescription()).doesNotContain("script", "javascript:");
+            })
+            .verifyComplete();
     }
 
     @Test
@@ -82,14 +109,43 @@ class SoftwarePublicQueryServiceImplTest {
             .thenReturn(reactor.core.publisher.Flux.just(version()));
         when(client.listAll(eq(DownloadAsset.class), any(ListOptions.class), any()))
             .thenReturn(reactor.core.publisher.Flux.just(downloadAsset()));
+        when(client.fetch(SoftwareCategory.class, "system-tools"))
+            .thenReturn(Mono.just(category("系统工具")));
+        when(client.fetch(SoftwareTag.class, "cleaner"))
+            .thenReturn(Mono.just(tag("系统清理")));
+        when(client.fetch(SoftwareTag.class, "utility"))
+            .thenReturn(Mono.empty());
 
         StepVerifier.create(service.getAppDetailBySlug("cleanmymac-x"))
             .assertNext(detail -> {
                 assertThat(detail.getName()).isEqualTo("software-generated-name");
                 assertThat(detail.getScreenshots()).containsExactly("/upload/screen-1.png",
                     "/upload/screen-2.png");
+                assertThat(detail.getCategoryName()).isEqualTo("system-tools");
+                assertThat(detail.getCategoryDisplayName()).isEqualTo("系统工具");
+                assertThat(detail.getCategorySlug()).isEqualTo("system-tools");
+                assertThat(detail.getTagNames()).containsExactly("cleaner", "utility");
+                assertThat(detail.getTagDisplayNames()).containsExactly("系统清理", "utility");
+                assertThat(detail.getDownloadCountText()).isEqualTo("42");
+                assertThat(detail.getLikeCountText()).isEqualTo("8");
+                assertThat(detail.getCommentCountText()).isEqualTo("3");
+                assertThat(detail.getSizeText()).isEqualTo("100 MB");
+                assertThat(detail.getSizeValue()).isEqualTo("100");
+                assertThat(detail.getSizeUnit()).isEqualTo("MB");
+                assertThat(detail.getLocaleValue()).isEqualTo("中文");
+                assertThat(detail.getLocaleUnit()).isEqualTo("ZH");
+                assertThat(detail.getMinOsDisplay()).isEqualTo(">=13.0");
+                assertThat(detail.getLatestReleaseDateText()).isEqualTo("2026-06-01");
+                assertThat(detail.getLatestReleaseDateShort()).isEqualTo("06-01");
+                assertThat(detail.getLatestReleaseWeekday()).isEqualTo("星期一");
                 assertThat(detail.getVersions()).hasSize(1);
                 assertThat(detail.getVersions().get(0).getVersion()).isEqualTo("4.15.0");
+                assertThat(detail.getVersions().get(0).getSizeText()).isEqualTo("100 MB");
+                assertThat(detail.getVersions().get(0).getLocaleLabel()).isEqualTo("中文");
+                assertThat(detail.getVersions().get(0).getMinOsDisplay())
+                    .isEqualTo("macOS 13.0 或更高版本");
+                assertThat(detail.getVersions().get(0).getReleaseDateText())
+                    .isEqualTo("2026-06-01");
                 assertThat(detail.getDownloadAssets()).hasSize(1);
                 DownloadAssetVo asset = detail.getDownloadAssets().get(0);
                 assertThat(asset.getName()).isEqualTo("asset-1");
@@ -97,6 +153,181 @@ class SoftwarePublicQueryServiceImplTest {
                 assertThat(asset.getUrl()).isNull();
                 assertThat(asset.getRequiresLogin()).isFalse();
                 assertThat(asset.getRequiresCaptcha()).isFalse();
+            })
+            .verifyComplete();
+    }
+
+    @Test
+    void getHomeReturnsAllSourceTabsTopicsAndCategories() {
+        when(client.listBy(eq(SoftwareApp.class), any(ListOptions.class), any(PageRequest.class)))
+            .thenReturn(Mono.just(new ListResult<>(1, 12, 1, List.of(app()))))
+            .thenReturn(Mono.just(new ListResult<>(1, 12, 1, List.of(app()))))
+            .thenReturn(Mono.just(new ListResult<>(1, 12, 23, List.of(app()))))
+            .thenReturn(Mono.just(new ListResult<>(1, 12, 1, List.of(app()))));
+        when(client.listBy(eq(SoftwareTopic.class), any(ListOptions.class), any(PageRequest.class)))
+            .thenReturn(Mono.just(new ListResult<>(1, 4, 1, List.of(topic()))));
+        when(client.listBy(eq(SoftwareCategory.class), any(ListOptions.class),
+            any(PageRequest.class)))
+            .thenReturn(Mono.just(new ListResult<>(1, 100, 1, List.of(category("系统工具")))));
+
+        StepVerifier.create(service.getHome())
+            .assertNext(home -> {
+                assertThat(home.getLatestApps()).extracting(SoftwareAppVo::getSlug)
+                    .containsExactly("cleanmymac-x");
+                assertThat(home.getPopularApps()).hasSize(1);
+                assertThat(home.getRecommendedApps()).hasSize(1);
+                assertThat(home.getRecommendedTotal()).isEqualTo(23);
+                assertThat(home.getCommentedApps()).hasSize(1);
+                assertThat(home.getTopics()).extracting("slug").containsExactly("novice");
+                assertThat(home.getCategories()).extracting("slug")
+                    .containsExactly("system-tools");
+            })
+            .verifyComplete();
+    }
+
+    @Test
+    void recommendedAppsExposesAThemeFriendlyResult() {
+        when(client.listBy(eq(SoftwareApp.class), any(ListOptions.class), any(PageRequest.class)))
+            .thenReturn(Mono.just(new ListResult<>(1, 8, 23, List.of(app()))));
+
+        StepVerifier.create(service.recommendedApps(8))
+            .assertNext(apps -> {
+                assertThat(apps.getTotal()).isEqualTo(23);
+                assertThat(apps.getItems()).extracting(SoftwareAppVo::getSlug)
+                    .containsExactly("cleanmymac-x");
+            })
+            .verifyComplete();
+
+        var optionsCaptor = ArgumentCaptor.forClass(ListOptions.class);
+        verify(client).listBy(eq(SoftwareApp.class), optionsCaptor.capture(),
+            any(PageRequest.class));
+        assertThat(optionsCaptor.getValue().toString())
+            .contains("spec.published", "spec.recommended");
+    }
+
+    @Test
+    void publishedTopicsExposesAThemeFriendlyList() {
+        when(client.listBy(eq(SoftwareTopic.class), any(ListOptions.class), any(PageRequest.class)))
+            .thenReturn(Mono.just(new ListResult<>(1, 100, 1, List.of(topic()))));
+
+        StepVerifier.create(service.publishedTopics())
+            .assertNext(topics -> assertThat(topics)
+                .extracting("slug")
+                .containsExactly("novice"))
+            .verifyComplete();
+
+        var optionsCaptor = ArgumentCaptor.forClass(ListOptions.class);
+        verify(client).listBy(eq(SoftwareTopic.class), optionsCaptor.capture(),
+            any(PageRequest.class));
+        assertThat(optionsCaptor.getValue().toString()).contains("spec.published");
+    }
+
+    @Test
+    void topicDetailsLoadsTopicsAndAppsInTwoBatchQueries() {
+        when(client.listAll(eq(SoftwareTopic.class), any(ListOptions.class), any()))
+            .thenReturn(Flux.just(topicWithApp()));
+        when(client.listAll(eq(SoftwareApp.class), any(ListOptions.class), any()))
+            .thenReturn(Flux.just(app()));
+
+        StepVerifier.create(service.topicDetails(List.of("novice")))
+            .assertNext(topics -> {
+                assertThat(topics).hasSize(1);
+                assertThat(topics.get(0).getSlug()).isEqualTo("novice");
+                assertThat(topics.get(0).getApps())
+                    .extracting(SoftwareAppVo::getSlug)
+                    .containsExactly("cleanmymac-x");
+            })
+            .verifyComplete();
+
+        verify(client, never()).fetch(eq(SoftwareApp.class), anyString());
+    }
+
+    @Test
+    void topicDetailsPreservesRequestedTopicAndConfiguredAppOrder() {
+        var firstApp = app();
+        var secondApp = app();
+        secondApp.getMetadata().setName("software-second");
+        secondApp.getSpec().setSlug("alfred");
+        secondApp.getSpec().setDisplayName("Alfred");
+
+        var novice = topicWithApp();
+        var power = topic();
+        power.getMetadata().setName("topic-power");
+        power.getSpec().setSlug("power");
+        power.getSpec().setTitle("效率工具");
+        var lowerPriority = new SoftwareTopic.Item();
+        lowerPriority.setAppName("software-generated-name");
+        lowerPriority.setPriority(20);
+        var higherPriority = new SoftwareTopic.Item();
+        higherPriority.setAppName("software-second");
+        higherPriority.setPriority(10);
+        power.getSpec().setItems(List.of(lowerPriority, higherPriority));
+
+        when(client.listAll(eq(SoftwareTopic.class), any(ListOptions.class), any()))
+            .thenReturn(Flux.just(novice, power));
+        when(client.listAll(eq(SoftwareApp.class), any(ListOptions.class), any()))
+            .thenReturn(Flux.just(firstApp, secondApp));
+
+        StepVerifier.create(service.topicDetails(List.of("power", "novice")))
+            .assertNext(topics -> {
+                assertThat(topics).extracting("slug").containsExactly("power", "novice");
+                assertThat(topics.get(0).getApps())
+                    .extracting(SoftwareAppVo::getSlug)
+                    .containsExactly("alfred", "cleanmymac-x");
+            })
+            .verifyComplete();
+    }
+
+    @Test
+    void topicDetailBySlugReusesBatchQueriesAndKeepsNotFoundSemantics() {
+        when(client.listAll(eq(SoftwareTopic.class), any(ListOptions.class), any()))
+            .thenReturn(Flux.just(topicWithApp()));
+        when(client.listAll(eq(SoftwareApp.class), any(ListOptions.class), any()))
+            .thenReturn(Flux.just(app()));
+
+        StepVerifier.create(service.getTopicDetailBySlug("novice"))
+            .assertNext(topic -> assertThat(topic.getApps())
+                .extracting(SoftwareAppVo::getSlug)
+                .containsExactly("cleanmymac-x"))
+            .verifyComplete();
+
+        verify(client, never()).fetch(eq(SoftwareApp.class), anyString());
+    }
+
+    @Test
+    void topicDetailBySlugReturnsNotFoundWhenNoPublishedTopicMatches() {
+        when(client.listAll(eq(SoftwareTopic.class), any(ListOptions.class), any()))
+            .thenReturn(Flux.empty());
+
+        StepVerifier.create(service.getTopicDetailBySlug("missing"))
+            .expectErrorSatisfies(error -> assertThat(error)
+                .isInstanceOfSatisfying(ResponseStatusException.class, statusError ->
+                    assertThat(statusError.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND)))
+            .verify();
+    }
+
+    @Test
+    void resolvesVisibleCategoryAndTagBySlug() {
+        when(client.listBy(eq(SoftwareCategory.class), any(ListOptions.class),
+            any(PageRequest.class)))
+            .thenReturn(Mono.just(new ListResult<>(1, 1, 1, List.of(category("系统工具")))));
+        when(client.listBy(eq(SoftwareTag.class), any(ListOptions.class), any(PageRequest.class)))
+            .thenReturn(Mono.just(new ListResult<>(1, 1, 1, List.of(tag("系统清理")))));
+
+        StepVerifier.create(service.getCategoryBySlug("system-tools"))
+            .assertNext(category -> {
+                assertThat(category.getName()).isEqualTo("system-tools");
+                assertThat(category.getSlug()).isEqualTo("system-tools");
+                assertThat(category.getDisplayName()).isEqualTo("系统工具");
+                assertThat(category.getChildren()).isEmpty();
+            })
+            .verifyComplete();
+
+        StepVerifier.create(service.getTagBySlug("cleaner"))
+            .assertNext(tag -> {
+                assertThat(tag.getName()).isEqualTo("cleaner");
+                assertThat(tag.getSlug()).isEqualTo("cleaner");
+                assertThat(tag.getDisplayName()).isEqualTo("系统清理");
             })
             .verifyComplete();
     }
@@ -183,12 +414,19 @@ class SoftwarePublicQueryServiceImplTest {
         spec.setScreenshots(List.of("/upload/screen-1.png", "/upload/screen-2.png"));
         spec.setSummary("Clean, optimize and maintain your Mac.");
         spec.setPublished(true);
+        spec.setRecommended(true);
         spec.setCategoryName("system-tools");
         spec.setTagNames(List.of("cleaner", "utility"));
+        spec.setLocale("zh-CN");
 
         var status = new SoftwareApp.Status();
         status.setLatestVersion("4.15.0");
+        status.setLatestReleaseDate(LocalDate.of(2026, 6, 1));
+        status.setMinOsVersion("13.0");
+        status.setSizeBytes(100L * 1024 * 1024);
         status.setDownloadCount(42L);
+        status.setLikeCount(8L);
+        status.setCommentCount(3L);
 
         var app = new SoftwareApp();
         app.setMetadata(metadata);
@@ -205,12 +443,62 @@ class SoftwarePublicQueryServiceImplTest {
         spec.setAppName("software-generated-name");
         spec.setVersion("4.15.0");
         spec.setReleaseDate(LocalDate.of(2026, 6, 1));
+        spec.setSizeBytes(100L * 1024 * 1024);
+        spec.setLocale("zh-CN");
+        spec.setMinOsVersion("13.0");
         spec.setStatus("released");
 
         var version = new SoftwareVersion();
         version.setMetadata(metadata);
         version.setSpec(spec);
         return version;
+    }
+
+    private static SoftwareCategory category(String displayName) {
+        var spec = new SoftwareCategory.Spec();
+        spec.setSlug("system-tools");
+        spec.setDisplayName(displayName);
+
+        var category = new SoftwareCategory();
+        category.setMetadata(new Metadata());
+        category.getMetadata().setName("system-tools");
+        category.setSpec(spec);
+        return category;
+    }
+
+    private static SoftwareTag tag(String displayName) {
+        var spec = new SoftwareTag.Spec();
+        spec.setSlug("cleaner");
+        spec.setDisplayName(displayName);
+
+        var tag = new SoftwareTag();
+        tag.setMetadata(new Metadata());
+        tag.getMetadata().setName("cleaner");
+        tag.setSpec(spec);
+        return tag;
+    }
+
+    private static SoftwareTopic topic() {
+        var spec = new SoftwareTopic.Spec();
+        spec.setSlug("novice");
+        spec.setTitle("新人必备");
+        spec.setPublished(true);
+        spec.setFeatured(true);
+
+        var topic = new SoftwareTopic();
+        topic.setMetadata(new Metadata());
+        topic.getMetadata().setName("topic-novice");
+        topic.setSpec(spec);
+        return topic;
+    }
+
+    private static SoftwareTopic topicWithApp() {
+        var topic = topic();
+        var item = new SoftwareTopic.Item();
+        item.setAppName("software-generated-name");
+        item.setPriority(0);
+        topic.getSpec().setItems(List.of(item));
+        return topic;
     }
 
     private static DownloadAsset downloadAsset() {

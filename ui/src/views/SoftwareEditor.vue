@@ -33,6 +33,7 @@ import {
   emptySoftwareApp,
   getApp,
   getRelatedPost,
+  getSoftwareAiCapabilities,
   getSoftwareOptions,
   getTag,
   listApps,
@@ -92,6 +93,7 @@ const softwareOptions = ref<SoftwareOptions>(defaultSoftwareOptions)
 const loading = ref(false)
 const saving = ref(false)
 const suggestingApp = ref(false)
+const aiAvailable = ref(false)
 const versionSaving = ref(false)
 const assetSaving = ref(false)
 const tagCreating = ref(false)
@@ -722,12 +724,14 @@ function closeAssetModal() {
 async function fetchResourceOptions() {
   resourceLoading.value = true
   try {
-    const [optionResult, categoryResult] = await Promise.all([
+    const [optionResult, categoryResult, aiCapabilities] = await Promise.all([
       getSoftwareOptions().catch(() => defaultSoftwareOptions),
       listCategories({ page: 1, size: 200 }),
+      getSoftwareAiCapabilities().catch(() => ({ available: false })),
     ])
     softwareOptions.value = normalizeSoftwareOptions(optionResult)
     categories.value = categoryResult.items
+    aiAvailable.value = aiCapabilities.available
   } finally {
     resourceLoading.value = false
   }
@@ -1149,6 +1153,7 @@ onBeforeRouteLeave(() => confirmDiscardChanges())
             <strong>基础资料</strong>
             <span>先把可检索、可归类的信息填完整，媒体和长描述放到下一步处理。</span>
             <VButton
+              v-if="aiAvailable"
               size="sm"
               type="secondary"
               :loading="suggestingApp"
@@ -1332,6 +1337,7 @@ onBeforeRouteLeave(() => confirmDiscardChanges())
                   <span>用于软件公开详情页正文，可插入说明、安装步骤和版本提示。</span>
                 </div>
                 <VButton
+                  v-if="aiAvailable"
                   size="sm"
                   type="secondary"
                   :loading="suggestingApp"
@@ -1356,6 +1362,7 @@ onBeforeRouteLeave(() => confirmDiscardChanges())
             <strong>SEO 信息</strong>
             <span>用于软件公开详情页和搜索索引。</span>
             <VButton
+              v-if="aiAvailable"
               size="sm"
               type="secondary"
               :loading="suggestingApp"

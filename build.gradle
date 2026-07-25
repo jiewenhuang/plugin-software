@@ -61,4 +61,6 @@ tasks.named('generatePluginComponentsIdx') {
 }
 halo {
     version = '2.25'
+    port = 8099
+    externalUrl = 'http://localhost:8099'
 }

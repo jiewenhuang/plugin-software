@@ -20,6 +20,7 @@ class SoftwareAppVoTest {
         assertThat(vo.getDescription()).isEqualTo("<p>Clean your Mac.</p>");
         assertThat(vo.getOfficialWebsite()).isEqualTo("https://example.com");
         assertThat(vo.getPlatform()).isEqualTo("macos");
+        assertThat(vo.getArchitectures()).containsExactly("arm64", "x64");
         assertThat(vo.getLicenseType()).isEqualTo("commercial");
         assertThat(vo.getLocale()).isEqualTo("zh-CN");
         assertThat(vo.getFeatured()).isTrue();
@@ -40,6 +41,7 @@ class SoftwareAppVoTest {
         assertThat(detail.getDescription()).isEqualTo("<p>Clean your Mac.</p>");
         assertThat(detail.getLatestReleaseDate()).isEqualTo(LocalDate.of(2026, 6, 20));
         assertThat(detail.getMinOsVersion()).isEqualTo("10.13");
+        assertThat(detail.getArchitectures()).containsExactly("arm64", "x64");
         assertThat(detail.getSizeBytes()).isEqualTo(157286400L);
         assertThat(detail.getCommentCount()).isEqualTo(12L);
     }
@@ -61,6 +63,7 @@ class SoftwareAppVoTest {
         spec.setSummary("Clean, optimize and maintain your Mac.");
         spec.setDescription("<p>Clean your Mac.</p>");
         spec.setPlatform("macos");
+        spec.setArchitectures(List.of("arm64", "x64"));
         spec.setLicenseType("commercial");
         spec.setLocale("zh-CN");
         spec.setFeatured(true);

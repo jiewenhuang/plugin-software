@@ -23,6 +23,7 @@ rules:
       - categories
       - tags
       - topics
+      - ai/capabilities
     verbs: [ "get", "list" ]
 ---
 apiVersion: v1alpha1

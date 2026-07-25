@@ -2,6 +2,7 @@ package run.jiewen.software;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.springframework.mock.http.server.reactive.MockServerHttpRequest;
 import org.springframework.mock.web.server.MockServerWebExchange;
@@ -29,6 +30,18 @@ class SoftwarePublicQueryTest {
         assertThat(query.getSize()).isEqualTo(12);
         assertThat(query.toListOptions().toString())
             .contains("spec.displayName", "clean", "spec.categoryName", "system-tools");
+    }
+
+    @Test
+    void querySupportsAggregatedParentAndChildCategories() {
+        var exchange = MockServerWebExchange.from(MockServerHttpRequest
+            .get("/apps?category=media")
+            .build());
+
+        var query = new SoftwarePublicQuery(exchange);
+
+        assertThat(query.toListOptions(List.of("media", "video-edit", "audio")).toString())
+            .contains("spec.categoryName", "media", "video-edit", "audio");
     }
 
     @Test

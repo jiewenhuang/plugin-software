@@ -23,6 +23,10 @@ export interface SoftwareAppAiSuggestion {
 
 export type SoftwareAiTarget = 'all' | 'basic' | 'description' | 'seo'
 
+export interface SoftwareAiCapabilities {
+  available: boolean
+}
+
 export interface SoftwareAppSpec {
   slug: string
   displayName: string
@@ -308,6 +312,12 @@ export function suggestAppByAi(payload: {
 }) {
   return axiosInstance
     .post<SoftwareAppAiSuggestion>(`${base}/ai/apps/suggestions`, payload)
+    .then((response) => response.data)
+}
+
+export function getSoftwareAiCapabilities() {
+  return axiosInstance
+    .get<SoftwareAiCapabilities>(`${base}/ai/capabilities`)
     .then((response) => response.data)
 }
 

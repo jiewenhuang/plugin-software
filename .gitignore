@@ -5,6 +5,7 @@ logs/
 
 ### Gradle
 .gradle
+.gradle-user-home/
 /build/
 /out/
 !gradle/wrapper/gradle-wrapper.jar

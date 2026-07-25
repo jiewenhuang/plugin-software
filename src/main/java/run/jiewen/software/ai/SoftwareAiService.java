@@ -8,6 +8,7 @@ import java.util.Objects;
 import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.stereotype.Component;
 import org.springframework.web.server.ServerWebInputException;
 import reactor.core.publisher.Flux;
@@ -33,7 +34,8 @@ import tools.jackson.databind.json.JsonMapper;
 
 @Slf4j
 @Component
-public class SoftwareAiService {
+@ConditionalOnClass(name = "run.halo.aifoundation.AiModelService")
+public class SoftwareAiService implements SoftwareAiAssistant {
 
     private static final JsonMapper JSON_MAPPER = JsonMapper.builder().build();
     private static final TypeReference<Map<String, Object>> MAP_TYPE = new TypeReference<>() {
@@ -78,6 +80,14 @@ public class SoftwareAiService {
         return suggestApp(app, instruction, SoftwareAiTarget.ALL);
     }
 
+    @Override
+    public Mono<Boolean> available() {
+        return extensionGetter.getEnabledExtension(AiModelService.class)
+            .hasElement()
+            .onErrorReturn(false);
+    }
+
+    @Override
     public Mono<SoftwareAppAiSuggestion> suggestApp(SoftwareApp app, String instruction,
         SoftwareAiTarget target) {
         if (app == null || app.getSpec() == null) {

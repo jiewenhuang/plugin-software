@@ -1,11 +1,12 @@
 package run.jiewen.software.vo;
 
+import java.util.List;
 import lombok.Builder;
 import lombok.Value;
 import run.jiewen.software.extension.SoftwareCategory;
 
 @Value
-@Builder
+@Builder(toBuilder = true)
 public class SoftwareCategoryVo {
 
     String name;
@@ -23,6 +24,9 @@ public class SoftwareCategoryVo {
     Integer priority;
 
     Integer appCount;
+
+    @Builder.Default
+    List<SoftwareCategoryVo> children = List.of();
 
     public static SoftwareCategoryVo from(SoftwareCategory category) {
         var metadata = category.getMetadata();

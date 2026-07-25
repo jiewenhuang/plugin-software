@@ -47,6 +47,21 @@ class SoftwareAiServiceTest {
     LanguageModel languageModel;
 
     @Test
+    void reportsWhetherAiFoundationExtensionIsEnabled() {
+        var service = new SoftwareAiService(extensionGetter, client, settingFetcher,
+            new SoftwareHtmlSanitizer());
+        when(extensionGetter.getEnabledExtension(AiModelService.class))
+            .thenReturn(Mono.just(aiModelService), Mono.empty());
+
+        StepVerifier.create(service.available())
+            .expectNext(true)
+            .verifyComplete();
+        StepVerifier.create(service.available())
+            .expectNext(false)
+            .verifyComplete();
+    }
+
+    @Test
     void suggestAppParsesJsonObjectFromStreamResult() {
         var options = new SoftwareAiOptions();
         options.setLanguageModelName("configured-model");
