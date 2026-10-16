@@ -9,10 +9,12 @@
 | Halo    | `>= 2.26.0`                                          |
 | JDK     | 21                                                   |
 | Docker  | 用于 Halo DevTools 开发实例                          |
-| Node.js | 建议 24，与 CI 保持一致；最低按项目 Node 20 配置运行 |
+| Node.js | 24，与 CI、Node 类型声明及 TypeScript 配置保持一致 |
 | pnpm    | 10，项目锁定版本为 `10.12.4`                         |
 
 Gradle 和 pnpm 均应使用项目提供的 Wrapper 或锁定版本，避免本地工具版本差异影响构建结果。
+
+Console 使用 `@halo-dev/ui-plugin-bundler-kit/vite` 入口，并显式选择 `format: 'iife'`，保留现有 `main.js`、`style.css` 和富文本编辑器样式集成。构建工具 2.26 默认按最低 Halo 版本选择 ESM；切换 ESM 需要一起迁移共享依赖的深层导入、清单和资源加载，不能作为例行依赖升级隐式切换。
 
 ## 克隆仓库
 
@@ -193,10 +195,13 @@ git diff --check
 - 发布前，在仓库 **Settings → Secrets and variables → Actions → Repository secrets** 添加 `HALO_PAT`，值为 Halo 官网具有「版本管理」权限的个人令牌。工作流将该 Secret 显式传给官方发布流程的 `halo-pat`。不要将令牌提交到代码或写入 Release 正文。
 - 未配置 `HALO_PAT` 时，应用市场同步无法成功；配置后发布新 Release。补发失败的同步前，先检查应用市场中是否已有对应版本或草稿，避免重复创建，再重跑原 Release 对应的失败作业。Release 标签决定构建版本（例如 `v1.2.0` 对应 `1.2.0`），发布前确认标签指向已通过 CI 的提交，并检查 Release 正文和制品。
 - `.github/dependabot.yml` 保留自动依赖更新，改为每月检查：Gradle 与 npm 的 minor/patch 更新分别合为一组，major 更新独立审查；GitHub Actions 按工作流生态合为一组。每个生态最多同时打开 2 个常规更新 PR，不自动合并。安全告警及其更新机制继续保留。
+- `@types/node` 的 major 更新需随 CI/CD 运行时一起手动升级；Vue Router 保持 Halo 2.26 UI 包要求的 `~5.1.0`，minor/major 更新需先核对 Halo peerDependencies。Dependabot 继续检查这些依赖的兼容补丁更新。Node 24 的 TypeScript 预设使用 TypeScript 5.9 支持的标准库类型。
 
 ## MCP 开发与验证
 
-MCP API 使用 Maven Central 的正式版 `1.0.0`，仅加入 compileOnly 及测试类路径。正式包不能嵌入 `run/halo/mcpserver/api` 或 MCP Java SDK。工具列表、权限和错误契约见 [mcp.md](./mcp.md)。
+MCP API 使用 Maven Central 的正式版 `1.3.0`，仅加入 compileOnly 及测试类路径；插件继续只调用 1.0.0 已有的接口，以保留现有最低版本要求。正式包不能嵌入 `run/halo/mcpserver/api` 或 MCP Java SDK。工具列表、权限和错误契约见 [mcp.md](./mcp.md)。
+
+2026-10-16 依赖升级验证：Gradle 9.8.1 完整构建通过，193 项 Java 测试、55 项前端测试、lint 和类型检查通过；保持新 API 编译结果不变，仅将测试运行时替换为 AI Foundation API 1.0.1 / MCP API 1.0.0 后，193 项 Java 测试再次通过。JAR 保留 IIFE Console JS/CSS，不包含可选插件 API 或 MCP SDK。本轮未重复执行真实 Halo 实例中的安装、编辑器 UI 和 MCP 联调；此前真实实例记录见版本发布说明。
 
 后端重点测试为 `SoftwareResourceOperationsTest` 和 `SoftwareMcpToolProviderTest`，分别覆盖带版本的领域修改、字段清空与敏感配置，以及 45 个 Handler 的输出、开关、参数和超时。现有 Console 查询测试保护 HTTP 兼容行为。
 

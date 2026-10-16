@@ -1,12 +1,14 @@
 import { fileURLToPath, URL } from 'url'
 
-import { viteConfig } from '@halo-dev/ui-plugin-bundler-kit'
+import { viteConfig } from '@halo-dev/ui-plugin-bundler-kit/vite'
 import Icons from 'unplugin-icons/vite'
 import { configDefaults } from 'vitest/config'
 
 // For more info,
 // please see https://github.com/halo-dev/halo/tree/main/ui/packages/ui-plugin-bundler-kit
 export default viteConfig({
+  // Keep the existing Console bundle and rich-text editor stylesheet integration.
+  format: 'iife',
   vite: {
     plugins: [Icons({ compiler: 'vue3' })],
     resolve: {
