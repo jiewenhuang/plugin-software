@@ -194,8 +194,9 @@ git diff --check
 - `.github/workflows/cd.yaml` 在 GitHub Release 发布（`release.published`）时构建插件，将 JAR 上传到该 Release，并同步到 Halo 应用市场应用 `app-todmqfve`。普通 push、PR 和草稿 Release 不触发发布。
 - 发布前，在仓库 **Settings → Secrets and variables → Actions → Repository secrets** 添加 `HALO_PAT`，值为 Halo 官网具有「版本管理」权限的个人令牌。工作流将该 Secret 显式传给官方发布流程的 `halo-pat`。不要将令牌提交到代码或写入 Release 正文。
 - 未配置 `HALO_PAT` 时，应用市场同步无法成功；配置后发布新 Release。补发失败的同步前，先检查应用市场中是否已有对应版本或草稿，避免重复创建，再重跑原 Release 对应的失败作业。Release 标签决定构建版本（例如 `v1.2.0` 对应 `1.2.0`），发布前确认标签指向已通过 CI 的提交，并检查 Release 正文和制品。
-- `.github/dependabot.yml` 保留自动依赖更新，改为每月检查：Gradle 与 npm 的 minor/patch 更新分别合为一组，major 更新独立审查；GitHub Actions 按工作流生态合为一组。每个生态最多同时打开 2 个常规更新 PR，不自动合并。安全告警及其更新机制继续保留。
-- `@types/node` 的 major 更新需随 CI/CD 运行时一起手动升级；Vue Router 保持 Halo 2.26 UI 包要求的 `~5.1.0`，minor/major 更新需先核对 Halo peerDependencies。Dependabot 继续检查这些依赖的兼容补丁更新。Node 24 的 TypeScript 预设使用 TypeScript 5.9 支持的标准库类型。
+- `.github/dependabot.yml` 将 Gradle、npm、GitHub Actions 的 `open-pull-requests-limit` 全部设为 `0`，暂停常规版本更新 PR，依赖升级改为按需人工维护。该字段限制同时打开的 PR 数量，不是每月配额；非零值在已有 PR 关闭或合并后仍会为其他更新腾出名额，修改配置也会触发重新检查。
+- `schedule` 是配置必填项；保留的 monthly、分组及版本约束仅供将来明确恢复常规自动更新时使用。限额为 `0` 不会禁用安全更新；安全告警和自动安全修复由仓库 Security 设置单独控制，本次不改变这些设置。安全更新若启用，仍可能创建 PR。
+- 手动升级时，`@types/node` 的 major 版本需与 CI/CD 运行时一致；Vue Router 保持 Halo 2.26 UI 包要求的 `~5.1.0`，minor/major 更新需先核对 Halo peerDependencies。Node 24 的 TypeScript 预设使用 TypeScript 5.9 支持的标准库类型。
 
 ## MCP 开发与验证
 
