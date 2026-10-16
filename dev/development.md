@@ -188,9 +188,11 @@ git diff --check
 
 ## CI 与发布
 
-- `.github/workflows/ci.yaml` 使用 Halo 官方可复用工作流，在 Java 21、Node.js 24 和 pnpm 10 环境执行构建。
-- `.github/workflows/cd.yaml` 在 GitHub Release 发布时生成插件制品。
-- Halo 应用市场发布当前未启用，启用前需要配置对应 App ID。
+- `.github/workflows/ci.yaml` 使用 Halo 官方可复用工作流 v5，在 Java 21、Node.js 24 和 pnpm 10 环境执行完整构建与检查。
+- `.github/workflows/cd.yaml` 在 GitHub Release 发布（`release.published`）时构建插件，将 JAR 上传到该 Release，并同步到 Halo 应用市场应用 `app-todmqfve`。普通 push、PR 和草稿 Release 不触发发布。
+- 发布前，在仓库 **Settings → Secrets and variables → Actions → Repository secrets** 添加 `HALO_PAT`，值为 Halo 官网具有「版本管理」权限的个人令牌。工作流将该 Secret 显式传给官方发布流程的 `halo-pat`。不要将令牌提交到代码或写入 Release 正文。
+- 未配置 `HALO_PAT` 时，应用市场同步无法成功；配置后发布新 Release。补发失败的同步前，先检查应用市场中是否已有对应版本或草稿，避免重复创建，再重跑原 Release 对应的失败作业。Release 标签决定构建版本（例如 `v1.2.0` 对应 `1.2.0`），发布前确认标签指向已通过 CI 的提交，并检查 Release 正文和制品。
+- `.github/dependabot.yml` 保留自动依赖更新，改为每月检查：Gradle 与 npm 的 minor/patch 更新分别合为一组，major 更新独立审查；GitHub Actions 按工作流生态合为一组。每个生态最多同时打开 2 个常规更新 PR，不自动合并。安全告警及其更新机制继续保留。
 
 ## MCP 开发与验证
 

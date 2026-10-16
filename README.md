@@ -233,7 +233,7 @@ Halo DevTools：
 - `v1alpha1` 已发布字段不做无迁移重命名或删除；允许向后兼容地新增可选字段。
 - Public VO、Console VO 和 Finder 聚合 VO 分开维护。
 - Router 模板变量、Finder 方法、RBAC 和敏感字段隔离均由契约测试保护。
-- GitHub CI/CD 使用 Halo 官方插件工作流；Halo 应用市场发布当前未启用。
+- GitHub CI/CD 使用 Halo 官方插件工作流；发布 GitHub Release 时自动同步到 Halo 应用市场应用 `app-todmqfve`，需先配置仓库密钥 `HALO_PAT`，详见 [CI 与发布配置](./dev/development.md#ci-与发布)。
 
 ## 许可证
 
