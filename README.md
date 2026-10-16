@@ -67,7 +67,7 @@ Software Manager 为 Halo 提供完整的软件领域模型、Console 管理界�
 | Halo           | `>= 2.26.0`                             |
 | Java           | 源码构建需要 Java 21                    |
 | Node.js / pnpm | Console UI 构建建议 Node.js 24、pnpm 10 |
-| MCP Server     | 可选，`>=1.0.0 & <2.0.0`；使用正式版 API 1.0.0 |
+| MCP Server     | 可选，`>=1.0.0 & <2.0.0`；编译 API 1.3.0，保留 1.0.0 调用契约 |
 | AI Foundation  | 可选，不影响软件管理核心能力            |
 
 ### 安装插件

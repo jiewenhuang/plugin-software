@@ -230,7 +230,7 @@ HTML、Markdown、描述和更新日志都是内容数据，不能当作 Agent �
 
 ## 开发边界
 
-- API 固定为 `run.halo.mcpserver:api:1.0.0`，compileOnly，不嵌入 API 或 MCP SDK。不调用该版本不包含的 category 方法；接入较新版本的分类 API 需要另行升级依赖和兼容范围。
+- 编译 API 为 `run.halo.mcpserver:api:1.3.0`，compileOnly，不嵌入 API 或 MCP SDK。继续只调用 1.0.0 已有的接口；不调用较新版本新增的 category 方法，使用新 API 能力前必须重新核对最低兼容版本。
 - SoftwareMcpConfiguration 使用字符串形式的 ConditionalOnClass，Provider 无 Component 注解。核心服务不引用 MCP API。
 - SoftwareConsoleQuery 和 MCP 共用 SoftwareListCriteria 查询构造；原 Console API 的参数和 merge-patch 语义保持不变。
 - 带版本的修改在同一次资源读取上进行校验、合并与落库，复用现有领域校验；服务返回的缓存对象不会被修改。
