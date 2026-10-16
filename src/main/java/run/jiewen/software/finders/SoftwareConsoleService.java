@@ -1,20 +1,43 @@
 package run.jiewen.software.finders;
 
+import java.util.Map;
 import reactor.core.publisher.Mono;
+import run.halo.app.extension.AbstractExtension;
 import run.halo.app.extension.ListResult;
 import run.jiewen.software.SoftwareConsoleQuery;
 import run.jiewen.software.api.DownloadAssetSecretCommand;
+import run.jiewen.software.api.SoftwareMutation;
+import run.jiewen.software.api.SoftwareResourceKind;
 import run.jiewen.software.extension.DownloadAsset;
 import run.jiewen.software.extension.SoftwareApp;
 import run.jiewen.software.extension.SoftwareCategory;
 import run.jiewen.software.extension.SoftwareTag;
 import run.jiewen.software.extension.SoftwareTopic;
 import run.jiewen.software.extension.SoftwareVersion;
+import run.jiewen.software.query.SoftwareListCriteria;
 import run.jiewen.software.vo.SoftwareConsoleStatsVo;
 import run.jiewen.software.vo.DownloadAssetSecretVo;
 import run.jiewen.software.vo.DownloadAssetStatsVo;
 
 public interface SoftwareConsoleService {
+
+    Mono<ListResult<AbstractExtension>> listResources(SoftwareResourceKind kind,
+        SoftwareListCriteria criteria);
+
+    Mono<AbstractExtension> getResource(SoftwareResourceKind kind, String name);
+
+    Mono<AbstractExtension> createResource(SoftwareResourceKind kind, Map<String, Object> spec);
+
+    Mono<AbstractExtension> prepareCreateResource(SoftwareResourceKind kind,
+        Map<String, Object> spec, String name);
+
+    Mono<Void> validateResourceState(AbstractExtension resource);
+
+    Mono<AbstractExtension> patchResource(SoftwareResourceKind kind, String name,
+        SoftwareMutation mutation);
+
+    Mono<AbstractExtension> deleteResource(SoftwareResourceKind kind, String name,
+        Long expectedVersion);
 
     Mono<ListResult<SoftwareApp>> listApps(SoftwareConsoleQuery query);
 

@@ -10,6 +10,7 @@ import run.halo.app.extension.index.IndexSpecs;
 import run.halo.app.plugin.BasePlugin;
 import run.halo.app.plugin.PluginContext;
 import run.jiewen.software.extension.DownloadAsset;
+import run.jiewen.software.extension.SoftwareCreateOperation;
 import run.jiewen.software.extension.SoftwareApp;
 import run.jiewen.software.extension.SoftwareCategory;
 import run.jiewen.software.extension.SoftwareTag;
@@ -36,6 +37,7 @@ public class SoftwarePlugin extends BasePlugin {
 
     @Override
     public void start() {
+        schemeManager.register(SoftwareCreateOperation.class);
         schemeManager.register(SoftwareApp.class, indexSpecs -> {
             indexSpecs.add(IndexSpecs.<SoftwareApp, String>single("spec.slug", String.class)
                 .indexFunc(app -> app.getSpec().getSlug()));
@@ -47,6 +49,9 @@ public class SoftwarePlugin extends BasePlugin {
                 .indexFunc(app -> app.getSpec().getTagNames() == null
                     ? Set.of()
                     : app.getSpec().getTagNames().stream().collect(Collectors.toSet())));
+            indexSpecs.add(IndexSpecs.<SoftwareApp, String>multi("spec.relatedAppNames", String.class)
+                .indexFunc(app -> app.getSpec().getRelatedAppNames() == null ? Set.of()
+                    : app.getSpec().getRelatedAppNames().stream().filter(Objects::nonNull).collect(Collectors.toSet())));
             indexSpecs.add(IndexSpecs.<SoftwareApp, String>single("spec.platform", String.class)
                 .indexFunc(app -> app.getSpec().getPlatform()));
             indexSpecs.add(IndexSpecs.<SoftwareApp, String>multi("spec.platforms", String.class)
@@ -156,6 +161,10 @@ public class SoftwarePlugin extends BasePlugin {
                 .indexFunc(tag -> tag.getStatus() == null ? null : tag.getStatus().getAppCount()));
         });
         schemeManager.register(SoftwareTopic.class, indexSpecs -> {
+            indexSpecs.add(IndexSpecs.<SoftwareTopic, String>multi("spec.items.appName", String.class)
+                .indexFunc(topic -> topic.getSpec().getItems() == null ? Set.of()
+                    : topic.getSpec().getItems().stream().filter(Objects::nonNull)
+                        .map(SoftwareTopic.Item::getAppName).filter(Objects::nonNull).collect(Collectors.toSet())));
             indexSpecs.add(IndexSpecs.<SoftwareTopic, String>single("spec.slug", String.class)
                 .indexFunc(topic -> topic.getSpec().getSlug()));
             indexSpecs.add(IndexSpecs.<SoftwareTopic, String>single("spec.title", String.class)
@@ -174,6 +183,7 @@ public class SoftwarePlugin extends BasePlugin {
 
     @Override
     public void stop() {
+        unregister(SoftwareCreateOperation.class);
         unregister(SoftwareApp.class);
         unregister(SoftwareVersion.class);
         unregister(DownloadAsset.class);
