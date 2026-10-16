@@ -6,7 +6,7 @@
 
 | 组件    | 要求                                                 |
 | ------- | ---------------------------------------------------- |
-| Halo    | `>= 2.25.0`                                          |
+| Halo    | `>= 2.26.0`                                          |
 | JDK     | 21                                                   |
 | Docker  | 用于 Halo DevTools 开发实例                          |
 | Node.js | 建议 24，与 CI 保持一致；最低按项目 Node 20 配置运行 |
@@ -35,6 +35,9 @@ plugin-software/
 │   ├── vo/                               # Public、Finder 与 Console VO
 │   ├── comment/                          # SoftwareApp 评论资源适配
 │   ├── ai/                               # 可选 AI 编辑辅助
+│   ├── operations/                       # 持久化创建回执、内容版本和只读预检查
+│   ├── mcp/                              # 可选 MCP 工具适配与明确输入输出契约
+│   ├── query/                            # HTTP / MCP 共用查询构造
 │   ├── SoftwareThemeRouter.java          # 主题路由与模板模型
 │   ├── SoftwareQueryEndpoint.java        # 公共 REST API
 │   └── SoftwareConsoleEndpoint.java      # Console REST API
@@ -64,7 +67,7 @@ plugin-software/
 
 当前 DevTools 配置使用：
 
-- Halo：`2.25`
+- Halo：`2.26.0`
 - 访问地址：<http://localhost:8099>
 - Console：<http://localhost:8099/console>
 - Swagger UI：<http://localhost:8099/swagger-ui.html>
@@ -188,3 +191,19 @@ git diff --check
 - `.github/workflows/ci.yaml` 使用 Halo 官方可复用工作流，在 Java 21、Node.js 24 和 pnpm 10 环境执行构建。
 - `.github/workflows/cd.yaml` 在 GitHub Release 发布时生成插件制品。
 - Halo 应用市场发布当前未启用，启用前需要配置对应 App ID。
+
+## MCP 开发与验证
+
+MCP API 使用 Maven Central 的正式版 `1.0.0`，仅加入 compileOnly 及测试类路径。正式包不能嵌入 `run/halo/mcpserver/api` 或 MCP Java SDK。工具列表、权限和错误契约见 [mcp.md](./mcp.md)。
+
+后端重点测试为 `SoftwareResourceOperationsTest` 和 `SoftwareMcpToolProviderTest`，分别覆盖带版本的领域修改、字段清空与敏感配置，以及 45 个 Handler 的输出、开关、参数和超时。现有 Console 查询测试保护 HTTP 兼容行为。
+
+真实环境至少验证：未安装 MCP 时软件插件启用；安装后工具发现；密钥白名单拒绝；敏感开关与独立读写授权；MCP 停用、重启、卸载；软件插件热重载。只完成单元测试不能宣称完成这些验证。临时测试环境应独立创建并在验证后清理。
+
+### MCP 1.2.0 回归重点
+
+- 内部 `SoftwareCreateOperation` 位于 `operations.software.jiewen.run/v1alpha1`，没有授予普通软件角色或匿名用户原始资源权限。其 API 不属于现有业务客户端生成分组。
+- 请求摘要与目标标记、pending → writing 的版本竞争和成功回执共同实现创建去重；不能通过清理“超时记录”或自动重置 writing 来恢复，否则可能重复创建。
+- 必须覆盖回执持久化失败、写入后中断恢复、相同 ID 并发、资源已删除后的重放，以及相同 ID 不同输入的拒绝。
+- expectedEditRevision 只适用于普通更新和发布。重试必须重新读取并检查业务摘要，不能用统计变化为理由无条件覆盖。
+- 删除检查新增 `spec.relatedAppNames` 和 `spec.items.appName` 索引，预检查返回引用总数及有限名称样本；发布检查返回准备度警告，不改变既有发布规则。

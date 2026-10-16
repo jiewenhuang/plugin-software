@@ -4,6 +4,20 @@ metadata:
   name: software-settings
 spec:
   forms:
+    - group: mcp
+      label: MCP 接入
+      formSchema:
+        - $formkit: switch
+          name: enabled
+          label: 启用 MCP 工具
+          value: true
+          help: 安装并启用 MCP Server 后生效。请在「工具 → MCP 服务」中为访问密钥选择需要的工具。
+        - $formkit: switch
+          name: exposeSensitiveTools
+          label: 开放下载敏感配置工具
+          value: false
+          help: 开放下载地址、提取码等配置的独立读写工具。开启后仍需分别为密钥授权；普通工具始终隐藏这些值。
+
     - group: ai
       label: AI 配置
       formSchema:

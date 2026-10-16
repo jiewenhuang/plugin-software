@@ -8,7 +8,7 @@
 
 <p align="center">
   <a href="https://github.com/jiewenhuang/plugin-software/actions/workflows/ci.yaml"><img src="https://github.com/jiewenhuang/plugin-software/actions/workflows/ci.yaml/badge.svg" alt="CI" /></a>
-  <img src="https://img.shields.io/badge/Halo-%E2%89%A52.25.0-6248ff" alt="Halo >= 2.25.0" />
+  <img src="https://img.shields.io/badge/Halo-%E2%89%A52.26.0-6248ff" alt="Halo >= 2.26.0" />
   <img src="https://img.shields.io/badge/Java-21-e76f00" alt="Java 21" />
   <img src="https://img.shields.io/badge/Vue-3.5-42b883" alt="Vue 3.5" />
   <a href="./LICENSE"><img src="https://img.shields.io/badge/License-GPL--3.0-3da639" alt="GPL-3.0" /></a>
@@ -42,6 +42,7 @@ Software Manager 为 Halo 提供完整的软件领域模型、Console 管理界�
 | 公共查询     | `softwareFinder`、主题 Router 和版本化 REST API                |
 | 评论集成     | 将 `SoftwareApp` 注册为 Halo 评论资源，并提供 Console 资源引用 |
 | 权限与安全   | 查看/管理/敏感配置分权、HTML 净化、目标白名单和短期下载授权     |
+| 可选 MCP     | 43 个基础管理工具与 2 个独立授权的敏感下载配置工具             |
 | 可选 AI      | 通过 AI Foundation 为摘要、详情和 SEO 提供编辑建议             |
 
 ## 领域模型
@@ -63,9 +64,10 @@ Software Manager 为 Halo 提供完整的软件领域模型、Console 管理界�
 
 | 组件           | 要求                                    |
 | -------------- | --------------------------------------- |
-| Halo           | `>= 2.25.0`                             |
+| Halo           | `>= 2.26.0`                             |
 | Java           | 源码构建需要 Java 21                    |
 | Node.js / pnpm | Console UI 构建建议 Node.js 24、pnpm 10 |
+| MCP Server     | 可选，`>=1.0.0 & <2.0.0`；使用正式版 API 1.0.0 |
 | AI Foundation  | 可选，不影响软件管理核心能力            |
 
 ### 安装插件
@@ -80,7 +82,7 @@ Software Manager 为 Halo 提供完整的软件领域模型、Console 管理界�
 
 ### 下载安全配置
 
-下载源的 URL、`storageKey`、提取码和密码 Secret 引用只通过独立的 Console Secret API 读写，普通“软件查看/管理”角色无法读取。需要验证码时：
+下载源的 URL、`storageKey`、提取码和密码 Secret 引用通过独立的 Console Secret API 或单独授权的 MCP 敏感工具读写，普通“软件查看/管理”角色无法读取。需要验证码时：
 
 1. 在 Halo 中创建 Secret，并把 Turnstile Secret Key 放在 `data.secret`（数据键可配置）；
 2. 在插件“下载安全”设置填写 Turnstile Site Key、Halo Secret 名称和数据键；
@@ -109,6 +111,8 @@ Software Manager 为 Halo 提供完整的软件领域模型、Console 管理界�
 | [主题 API 文档](./dev/theme-api.md)  | 插件守卫、主题路由、模板变量、Finder、Public VO、评论与降级行为 |
 | [REST API 文档](./dev/rest-api.md)   | 公共/Console/Extension API、参数、RBAC、错误状态和下载门禁      |
 | [开发环境搭建](./dev/development.md) | Halo DevTools、Console UI、测试、构建和公共契约变更流程         |
+
+[MCP 接入文档](./dev/mcp.md)介绍工具清单、参数、密钥授权、下载敏感字段隔离、并发和错误契约。
 
 README 只提供项目入口；上述文档是相应公共契约的详细来源。修改 Endpoint、Router、Finder 或 Public VO 时，应同时更新测试和对应文档。
 
@@ -155,6 +159,16 @@ name: <SoftwareApp.metadata.name>
 ```
 
 插件注册“软件查看”“软件管理”“软件敏感下载配置”和匿名公共 API 四类角色。主题不得通过 Console API 或原始 Extension 绕过公共 VO 和下载门禁。
+
+## 可选 MCP 集成
+
+安装并启用 MCP Server 后，软件中心贡献 43 个基础管理工具，客户端工具名以 `software__` 开头。在「工具 → MCP 服务」中为访问密钥勾选所需工具；新工具不会自动加入已有密钥。
+
+下载敏感配置的两个工具默认关闭，可在软件中心「MCP 接入」设置中开启，并分别授权读取或写入。普通工具始终隐藏下载 URL、提取码等字段。未安装或停用 MCP Server 时，软件中心仍能独立运行。
+
+1.2.0 增加持久化 requestId 防重复创建、容忍统计变更的编辑，以及发布准备和删除影响查询。已有客户端可继续使用原参数；新工具需要为密钥另外授权。
+
+完整使用方法见 [MCP 接入文档](./dev/mcp.md)。软件中心 1.2.0 延续 1.1.0 的最低 Halo 2.26.0 要求。
 
 ## 可选 AI 集成
 

@@ -1,25 +1,20 @@
 package run.jiewen.software;
 
-import static run.halo.app.extension.index.query.Queries.and;
-import static run.halo.app.extension.index.query.Queries.contains;
-import static run.halo.app.extension.index.query.Queries.equal;
-import static run.halo.app.extension.index.query.Queries.greaterThan;
-import static run.halo.app.extension.index.query.Queries.isNull;
-import static run.halo.app.extension.index.query.Queries.or;
 import static run.halo.app.extension.router.selector.SelectorUtil.labelAndFieldSelectorToListOptions;
 import static org.springdoc.core.fn.builders.parameter.Builder.parameterBuilder;
 import static run.halo.app.extension.router.QueryParamBuildUtil.sortParameter;
 
 import io.swagger.v3.oas.annotations.enums.ParameterIn;
+import java.util.LinkedHashMap;
+import java.util.Map;
 import org.springdoc.core.fn.builders.operation.Builder;
 import org.springframework.web.server.ServerWebExchange;
 import run.halo.app.extension.ListOptions;
 import run.halo.app.extension.PageRequest;
 import run.halo.app.extension.PageRequestImpl;
-import run.halo.app.extension.index.query.Condition;
 import run.halo.app.extension.router.SortableRequest;
 import run.halo.app.extension.router.IListRequest;
-import run.halo.app.extension.router.selector.FieldSelector;
+import run.jiewen.software.query.SoftwareListCriteria;
 
 public class SoftwareConsoleQuery extends SortableRequest {
 
@@ -88,63 +83,35 @@ public class SoftwareConsoleQuery extends SortableRequest {
     }
 
     public ListOptions toListOptions(String keywordField, boolean includeSlug) {
-        var listOptions =
-            labelAndFieldSelectorToListOptions(getLabelSelector(), getFieldSelector());
-        Condition query = null;
-        if (hasText(getKeyword())) {
-            var keywordQuery = contains(keywordField, getKeyword());
-            if (includeSlug) {
-                keywordQuery = or(keywordQuery, contains("spec.slug", getKeyword()));
-            }
-            query = append(query, keywordQuery);
+        var filters = new LinkedHashMap<String, Object>();
+        put(filters, "keyword", getKeyword());
+        put(filters, "categoryName", getCategory());
+        put(filters, "platform", getPlatform());
+        put(filters, "appName", getAppName());
+        put(filters, "versionName", getVersionName());
+        put(filters, "parentName", getParentName());
+        put(filters, "type", getType());
+        put(filters, "protection", getProtection());
+        put(filters, "usage", getUsage());
+        putBoolean(filters, "published", getPublished());
+        putBoolean(filters, "visible", getVisible());
+        putBoolean(filters, "featured", getFeatured());
+        putBoolean(filters, "enabled", getEnabled());
+        return new SoftwareListCriteria(filters,
+            getPage(), getSize(), getSort()).toListOptions(keywordField, includeSlug,
+                labelAndFieldSelectorToListOptions(getLabelSelector(), getFieldSelector()));
+    }
+
+    private static void put(Map<String, Object> filters, String key, String value) {
+        if (hasText(value)) {
+            filters.put(key, value);
         }
-        if (hasText(getPublished())) {
-            query = append(query, equal("spec.published", Boolean.parseBoolean(getPublished())));
+    }
+
+    private static void putBoolean(Map<String, Object> filters, String key, String value) {
+        if (hasText(value)) {
+            filters.put(key, Boolean.parseBoolean(value));
         }
-        if (hasText(getCategory())) {
-            query = append(query, equal("spec.categoryName", getCategory()));
-        }
-        if (hasText(getPlatform())) {
-            query = append(query, or(
-                equal("spec.platforms", getPlatform()),
-                equal("spec.platform", getPlatform())));
-        }
-        if (hasText(getAppName())) {
-            query = append(query, equal("spec.appName", getAppName()));
-        }
-        if (hasText(getVersionName())) {
-            query = append(query, equal("spec.versionName", getVersionName()));
-        }
-        if (hasText(getVisible())) {
-            query = append(query, equal("spec.visible", Boolean.parseBoolean(getVisible())));
-        }
-        if (hasText(getFeatured())) {
-            query = append(query, equal("spec.featured", Boolean.parseBoolean(getFeatured())));
-        }
-        if (hasText(getParentName())) {
-            query = append(query, equal("spec.parentName", getParentName()));
-        }
-        if (hasText(getType())) {
-            query = append(query, equal("spec.type", getType()));
-        }
-        if (hasText(getEnabled())) {
-            query = append(query, equal("spec.enabled", Boolean.parseBoolean(getEnabled())));
-        }
-        if ("protected".equalsIgnoreCase(getProtection())) {
-            query = append(query, equal("spec.protected", true));
-        }
-        if ("used".equalsIgnoreCase(getUsage())) {
-            query = append(query, greaterThan("status.appCount", 0));
-        } else if ("unused".equalsIgnoreCase(getUsage())) {
-            query = append(query, or(equal("status.appCount", 0), isNull("status.appCount")));
-        }
-        if (listOptions.getFieldSelector() != null) {
-            query = append(query, (Condition) listOptions.getFieldSelector().query());
-        }
-        if (query != null) {
-            listOptions.setFieldSelector(FieldSelector.of(query));
-        }
-        return listOptions;
     }
 
     public PageRequest toPageRequest() {
@@ -217,10 +184,6 @@ public class SoftwareConsoleQuery extends SortableRequest {
             .description(description)
             .implementation(type)
             .required(false);
-    }
-
-    private static Condition append(Condition base, Condition next) {
-        return base == null ? next : and(base, next);
     }
 
     private static boolean hasText(String value) {

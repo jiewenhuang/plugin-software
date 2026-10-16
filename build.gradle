@@ -18,10 +18,14 @@ repositories {
 }
 
 dependencies {
-    implementation platform('run.halo.tools.platform:plugin:2.25.0')
+    implementation platform('run.halo.tools.platform:plugin:2.26.0')
     implementation 'org.jsoup:jsoup:1.22.1'
     compileOnly 'run.halo.app:api'
     compileOnly 'run.halo.aifoundation:api:1.0.0-SNAPSHOT'
+    compileOnly 'run.halo.mcpserver:api:1.0.0'
+
+    testCompileOnly 'run.halo.mcpserver:api:1.0.0'
+    testRuntimeOnly 'run.halo.mcpserver:api:1.0.0'
 
     testImplementation 'run.halo.app:api'
     testImplementation 'run.halo.aifoundation:api:1.0.0-SNAPSHOT'
@@ -60,7 +64,7 @@ tasks.named('generatePluginComponentsIdx') {
     notCompatibleWithConfigurationCache('This task invokes "Task.project" at execution time, which is not supported with configuration cache.')
 }
 halo {
-    version = '2.25'
+    version = '2.26.0'
     port = 8099
     externalUrl = 'http://localhost:8099'
 }

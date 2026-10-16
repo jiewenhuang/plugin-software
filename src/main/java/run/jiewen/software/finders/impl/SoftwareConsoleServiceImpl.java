@@ -9,12 +9,16 @@ import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Objects;
 import java.util.function.Function;
 import java.util.regex.Pattern;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.BeanWrapperImpl;
 import org.springframework.data.domain.Sort;
+import org.springframework.dao.OptimisticLockingFailureException;
+import reactor.util.retry.Retry;
+import run.jiewen.software.operations.SoftwareEditRevision;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
 import org.springframework.web.server.ResponseStatusException;
@@ -24,10 +28,17 @@ import run.halo.app.extension.AbstractExtension;
 import run.halo.app.extension.ListOptions;
 import run.halo.app.extension.ListResult;
 import run.halo.app.extension.Metadata;
+import run.halo.app.extension.MetadataOperator;
 import run.halo.app.extension.PageRequest;
 import run.halo.app.extension.PageRequestImpl;
 import run.halo.app.extension.ReactiveExtensionClient;
 import run.jiewen.software.SoftwareConsoleQuery;
+import run.jiewen.software.SoftwareDomainException;
+import run.jiewen.software.api.SoftwareMutation;
+import run.jiewen.software.api.SoftwareResourceKind;
+import run.jiewen.software.query.SoftwareListCriteria;
+import tools.jackson.databind.json.JsonMapper;
+import tools.jackson.databind.annotation.JsonDeserialize;
 import run.jiewen.software.api.DownloadAssetSecretCommand;
 import run.jiewen.software.download.DownloadTargetPolicy;
 import run.jiewen.software.extension.DownloadAsset;
@@ -45,6 +56,14 @@ import run.jiewen.software.vo.DownloadAssetStatsVo;
 @Component
 public class SoftwareConsoleServiceImpl implements SoftwareConsoleService {
 
+    // Halo's runtime MetadataOperator may only carry the Jackson 2 annotation.
+    // Supply its concrete type explicitly for our Jackson 3 resource copies.
+    private static final JsonMapper RESOURCE_JSON = JsonMapper.builder()
+        .addMixIn(MetadataOperator.class, ConcreteMetadata.class).build();
+
+    @JsonDeserialize(as = Metadata.class)
+    private interface ConcreteMetadata {}
+
     private static final PageRequest FIRST_MATCH =
         PageRequestImpl.of(1, 2, Sort.by("metadata.name").ascending());
     private static final Pattern SLUG_PATTERN = Pattern.compile("[a-z0-9]+(?:-[a-z0-9]+)*");
@@ -57,6 +76,164 @@ public class SoftwareConsoleServiceImpl implements SoftwareConsoleService {
 
     public SoftwareConsoleServiceImpl(ReactiveExtensionClient client) {
         this.client = client;
+    }
+
+    @Override
+    public Mono<ListResult<AbstractExtension>> listResources(SoftwareResourceKind kind,
+        SoftwareListCriteria criteria) {
+        String keyword = switch (kind) {
+            case VERSION -> "spec.version";
+            case DOWNLOAD_ASSET, TOPIC -> "spec.title";
+            default -> "spec.displayName";
+        };
+        var options = criteria.toListOptions(keyword,
+            kind != SoftwareResourceKind.VERSION && kind != SoftwareResourceKind.DOWNLOAD_ASSET,
+            ListOptions.builder().andQuery(
+                run.halo.app.extension.index.query.Queries.isNull("metadata.deletionTimestamp"))
+                .build());
+        return client.listBy(kind.type(), options, criteria.toPageRequest())
+            .map(result -> new ListResult<>(result.getPage(), result.getSize(), result.getTotal(),
+                result.getItems().stream().map(AbstractExtension.class::cast).toList()));
+    }
+
+    @Override
+    public Mono<AbstractExtension> getResource(SoftwareResourceKind kind, String name) {
+        return fetchOrNotFound(kind.type(), name, "Software resource not found")
+            .filter(resource -> resource.getMetadata().getDeletionTimestamp() == null)
+            .switchIfEmpty(Mono.error(new ResponseStatusException(HttpStatus.NOT_FOUND,
+                "Software resource is being deleted")))
+            .cast(AbstractExtension.class);
+    }
+
+    @Override
+    public Mono<AbstractExtension> createResource(SoftwareResourceKind kind,
+        Map<String, Object> spec) {
+        return Mono.defer(() -> {
+            var resource = BeanUtils.instantiateClass(kind.type());
+            kind.setSpec(resource, SoftwareMutation.createSpec(kind, spec));
+            return switch (resource) {
+                case SoftwareApp app -> createApp(app).cast(AbstractExtension.class);
+                case SoftwareVersion version -> createVersion(version).cast(AbstractExtension.class);
+                case DownloadAsset asset -> createDownloadAsset(asset).cast(AbstractExtension.class);
+                case SoftwareCategory category -> createCategory(category).cast(AbstractExtension.class);
+                case SoftwareTag tag -> createTag(tag).cast(AbstractExtension.class);
+                case SoftwareTopic topic -> createTopic(topic).cast(AbstractExtension.class);
+                default -> Mono.error(new IllegalArgumentException("Unsupported software resource"));
+            };
+        });
+    }
+
+    @Override
+    public Mono<AbstractExtension> prepareCreateResource(SoftwareResourceKind kind,
+        Map<String, Object> spec, String name) {
+        return Mono.defer(() -> {
+            var resource = BeanUtils.instantiateClass(kind.type());
+            var metadata = new Metadata();
+            metadata.setName(name);
+            resource.setMetadata(metadata);
+            kind.setSpec(resource, SoftwareMutation.createSpec(kind, spec));
+            return validateResource(resource).thenReturn(resource);
+        });
+    }
+
+    @Override
+    public Mono<AbstractExtension> patchResource(SoftwareResourceKind kind, String name,
+        SoftwareMutation mutation) {
+        var write = Mono.defer(() -> getResource(kind, name)
+            .flatMap(resource -> {
+                if (mutation.expectedEditRevision() == null) {
+                    checkVersion(resource, mutation.expectedVersion());
+                } else if (resource.getMetadata().getVersion() < mutation.expectedVersion()
+                    || !mutation.expectedEditRevision().equals(SoftwareEditRevision.of(kind, resource))) {
+                    throw new SoftwareDomainException("CONFLICT",
+                        "Business content changed; read it again before editing");
+                }
+                // Do not mutate the object returned by the extension cache on a failed validation.
+                var copy = RESOURCE_JSON.convertValue(resource, kind.type());
+                kind.setSpec(copy, mutation.apply(kind, kind.spec(copy)));
+                return validateResource(copy)
+                    .then(Mono.defer(() -> client.update(copy))).cast(AbstractExtension.class);
+            }));
+        // A retry always re-reads and re-validates the original business revision and all references.
+        return mutation.expectedEditRevision() == null ? write : write.retryWhen(Retry.max(2)
+            .filter(OptimisticLockingFailureException.class::isInstance)
+            .onRetryExhaustedThrow((spec, signal) -> signal.failure()));
+    }
+
+    @Override
+    public Mono<Void> validateResourceState(AbstractExtension resource) {
+        return Mono.defer(() -> validateResource(RESOURCE_JSON.convertValue(resource, resource.getClass())));
+    }
+
+    private Mono<Void> validateResource(AbstractExtension resource) {
+        String name = nameOf(resource);
+        return switch (resource) {
+            case SoftwareApp app -> {
+                normalizeApp(app);
+                yield ensureAppRefs(app, name).then(ensureSlugUnique(app.getSpec().getSlug(), name));
+            }
+            case SoftwareVersion version -> {
+                normalizeVersion(version);
+                yield ensureAppExists(version.getSpec().getAppName())
+                    .then(Mono.defer(() -> ensureVersionUnique(version.getSpec().getAppName(),
+                        version.getSpec().getVersion(), name)));
+            }
+            case DownloadAsset asset -> {
+                normalizeDownloadAsset(asset);
+                yield ensureDownloadAssetRefs(asset);
+            }
+            case SoftwareCategory category -> {
+                normalizeCategory(category);
+                yield ensureCategoryParent(category.getSpec().getParentName(), name)
+                    .then(ensureSlugUnique(SoftwareCategory.class, category.getSpec().getSlug(),
+                        name, SoftwareCategory::getSpec, SoftwareCategory.Spec::getSlug,
+                        "Software category slug already exists"));
+            }
+            case SoftwareTag tag -> {
+                normalizeTag(tag);
+                yield ensureSlugUnique(SoftwareTag.class, tag.getSpec().getSlug(), name,
+                    SoftwareTag::getSpec, SoftwareTag.Spec::getSlug, "Software tag slug already exists");
+            }
+            case SoftwareTopic topic -> {
+                normalizeTopic(topic);
+                yield ensureSlugUnique(SoftwareTopic.class, topic.getSpec().getSlug(), name,
+                    SoftwareTopic::getSpec, SoftwareTopic.Spec::getSlug,
+                    "Software topic slug already exists").then(ensureTopicRefs(topic));
+            }
+            default -> Mono.error(new IllegalArgumentException("Unsupported software resource"));
+        };
+    }
+
+    @Override
+    public Mono<AbstractExtension> deleteResource(SoftwareResourceKind kind, String name,
+        Long expectedVersion) {
+        return Mono.defer(() -> getResource(kind, name).flatMap(resource -> {
+            if (expectedVersion != null) {
+                checkVersion(resource, expectedVersion);
+            }
+            Mono<Void> checks = switch (kind) {
+                case APP -> ensureNoVersionsForApp(name)
+                    .then(Mono.defer(() -> ensureNoDownloadAssetsForApp(name)));
+                case VERSION -> ensureNoDownloadAssetsForVersion(name);
+                case CATEGORY -> ensureNoChildren(SoftwareApp.class, "spec.categoryName", name,
+                    "Please remove software category references before deleting")
+                    .then(Mono.defer(() -> ensureNoChildren(SoftwareCategory.class,
+                        "spec.parentName", name, "Please delete or move child categories before deleting")));
+                case TAG -> ensureNoChildren(SoftwareApp.class, "spec.tagNames", name,
+                    "Please remove software tag references before deleting");
+                default -> Mono.empty();
+            };
+            return checks.then(Mono.defer(() -> client.delete(
+                RESOURCE_JSON.convertValue(resource, kind.type()))))
+                .cast(AbstractExtension.class);
+        }));
+    }
+
+    private static void checkVersion(AbstractExtension resource, long expected) {
+        if (!Objects.equals(resource.getMetadata().getVersion(), expected)) {
+            throw new SoftwareDomainException("CONFLICT",
+                "Resource version changed; read the resource again before retrying");
+        }
     }
 
     @Override
@@ -476,7 +653,7 @@ public class SoftwareConsoleServiceImpl implements SoftwareConsoleService {
                     .filter(item -> !Objects.equals(nameOf(item), allowedName))
                     .findFirst();
                 if (duplicate.isPresent()) {
-                    return Mono.error(new ServerWebInputException(message));
+                    return Mono.error(new SoftwareDomainException("ALREADY_EXISTS", message));
                 }
                 return Mono.empty();
             });
@@ -701,7 +878,7 @@ public class SoftwareConsoleServiceImpl implements SoftwareConsoleService {
         var relatedAppCheck = reactor.core.publisher.Flux.fromIterable(relatedApps)
             .flatMap(relatedName -> {
                 if (Objects.equals(currentName, relatedName)) {
-                    return Mono.error(new ServerWebInputException(
+                    return Mono.error(new SoftwareDomainException("REFERENCE_INVALID",
                         "Software app cannot relate to itself"));
                 }
                 return fetchOrInputError(SoftwareApp.class, relatedName,
@@ -732,7 +909,7 @@ public class SoftwareConsoleServiceImpl implements SoftwareConsoleService {
             return Mono.empty();
         }
         if (Objects.equals(parentName, currentName)) {
-            return Mono.error(new ServerWebInputException(
+            return Mono.error(new SoftwareDomainException("REFERENCE_INVALID",
                 "Software category cannot be its own parent"));
         }
         return fetchOrInputError(SoftwareCategory.class, parentName,
@@ -744,10 +921,10 @@ public class SoftwareConsoleServiceImpl implements SoftwareConsoleService {
         HashSet<String> visited) {
         var name = nameOf(category);
         if (!visited.add(name)) {
-            return Mono.error(new ServerWebInputException("Software category hierarchy has a cycle"));
+            return Mono.error(new SoftwareDomainException("REFERENCE_INVALID", "Software category hierarchy has a cycle"));
         }
         if (Objects.equals(name, currentName)) {
-            return Mono.error(new ServerWebInputException(
+            return Mono.error(new SoftwareDomainException("REFERENCE_INVALID",
                 "Software category parent cannot be one of its descendants"));
         }
         var parentName = category.getSpec() == null ? null : category.getSpec().getParentName();
@@ -768,7 +945,7 @@ public class SoftwareConsoleServiceImpl implements SoftwareConsoleService {
                 .filter(item -> !Objects.equals(nameOf(item), allowedName))
                 .findFirst()
                 .<Mono<Void>>map(ignored -> Mono.error(
-                    new ServerWebInputException("Software version already exists for app")))
+                    new SoftwareDomainException("ALREADY_EXISTS", "Software version already exists for app")))
                 .orElseGet(Mono::empty));
     }
 
@@ -780,7 +957,7 @@ public class SoftwareConsoleServiceImpl implements SoftwareConsoleService {
             .flatMap(version -> {
                 var versionAppName = version.getSpec() == null ? null : version.getSpec().getAppName();
                 if (!Objects.equals(versionAppName, spec.getAppName())) {
-                    return Mono.error(new ServerWebInputException(
+                    return Mono.error(new SoftwareDomainException("REFERENCE_INVALID",
                         "Software version does not belong to app"));
                 }
                 return Mono.empty();
@@ -800,7 +977,7 @@ public class SoftwareConsoleServiceImpl implements SoftwareConsoleService {
                     || DownloadTargetPolicy.isUsable(secretValue(secret, "url"))) {
                     return Mono.empty();
                 }
-                return Mono.error(new ServerWebInputException(
+                return Mono.error(new SoftwareDomainException("REFERENCE_INVALID",
                     "Enabled download asset requires a usable URL"));
             });
     }
@@ -829,7 +1006,7 @@ public class SoftwareConsoleServiceImpl implements SoftwareConsoleService {
                 PageRequestImpl.of(1, 1, Sort.by("metadata.name").ascending()))
             .flatMap(result -> {
                 if (result.getItems() != null && !result.getItems().isEmpty()) {
-                    return Mono.error(new ServerWebInputException(message));
+                    return Mono.error(new SoftwareDomainException("RESOURCE_IN_USE", message));
                 }
                 return Mono.empty();
             });
@@ -860,7 +1037,9 @@ public class SoftwareConsoleServiceImpl implements SoftwareConsoleService {
     private <E extends AbstractExtension> Mono<E> fetchOrInputError(Class<E> type, String name,
         String message) {
         return client.fetch(type, name)
-            .switchIfEmpty(Mono.error(() -> new ServerWebInputException(message)));
+            .filter(resource -> resource.getMetadata() != null
+                && resource.getMetadata().getDeletionTimestamp() == null)
+            .switchIfEmpty(Mono.error(() -> new SoftwareDomainException("REFERENCE_INVALID", message)));
     }
 
     private static <E extends AbstractExtension, S> String slugOf(E extension,

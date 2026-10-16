@@ -336,7 +336,7 @@ class SoftwareConsoleServiceImplTest {
         when(client.fetch(SoftwareApp.class, "app-1")).thenReturn(Mono.just(existingApp("app-1")));
         when(client.fetch(SoftwareVersion.class, "version-1"))
             .thenReturn(Mono.just(existingVersion("version-1", "app-1")));
-        var secret = new Secret();
+        var secret = existingSecret("download-secret");
         secret.setData(Map.of("url",
             "https://downloads.example.com/private.dmg".getBytes(StandardCharsets.UTF_8)));
         when(client.fetch(Secret.class, "download-secret")).thenReturn(Mono.just(secret));
@@ -371,7 +371,7 @@ class SoftwareConsoleServiceImplTest {
         when(client.fetch(SoftwareVersion.class, "version-1"))
             .thenReturn(Mono.just(existingVersion("version-1", "app-1")));
         when(client.fetch(Secret.class, "software-download-asset-1"))
-            .thenReturn(Mono.just(new Secret()));
+            .thenReturn(Mono.just(existingSecret("software-download-asset-1")));
         when(client.update(any(DownloadAsset.class))).thenAnswer(invocation ->
             Mono.just(invocation.getArgument(0)));
 
@@ -415,7 +415,7 @@ class SoftwareConsoleServiceImplTest {
         when(client.fetch(SoftwareVersion.class, "version-1"))
             .thenReturn(Mono.just(existingVersion("version-1", "app-1")));
         when(client.fetch(Secret.class, "software-download-asset-1"))
-            .thenReturn(Mono.just(new Secret()));
+            .thenReturn(Mono.just(existingSecret("software-download-asset-1")));
         when(client.update(any(DownloadAsset.class))).thenAnswer(invocation ->
             Mono.just(invocation.getArgument(0)));
         var replacement = newDownloadAsset("app-1", "version-1");
@@ -688,6 +688,14 @@ class SoftwareConsoleServiceImplTest {
         metadata.setName(name);
         app.setMetadata(metadata);
         return app;
+    }
+
+    private static Secret existingSecret(String name) {
+        var secret = new Secret();
+        var metadata = new Metadata();
+        metadata.setName(name);
+        secret.setMetadata(metadata);
+        return secret;
     }
 
     private static SoftwareVersion newVersion(String appName, String versionText) {
